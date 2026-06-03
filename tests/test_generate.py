@@ -116,6 +116,63 @@ class GenerateDocumentTest(unittest.TestCase):
 
 
 class CliGenerateTest(unittest.TestCase):
+    def test_readme_quick_start_workflow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pipeline = root / "pipeline"
+            pipeline.mkdir()
+            script = pipeline / "train.py"
+            script.write_text(
+                textwrap.dedent(
+                    """\
+                    from dvcgen import dep, out, param
+
+                    TRAIN_DATA = dep("data/processed.csv")
+                    MODEL = out("models/model.pkl")
+
+                    LR = param("train.lr", 0.001)
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            original_directory = Path.cwd()
+            try:
+                import os
+
+                os.chdir(root)
+                exit_code = main(["pipeline/train.py"])
+            finally:
+                os.chdir(original_directory)
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                (root / "dvc.yaml").read_text(encoding="utf-8"),
+                textwrap.dedent(
+                    """\
+                    "stages":
+                      "train":
+                        "cmd": "python pipeline/train.py"
+                        "deps":
+                          - "pipeline/train.py"
+                          - "data/processed.csv"
+                        "outs":
+                          - "models/model.pkl"
+                        "params":
+                          - "train.lr"
+                    """
+                ),
+            )
+            self.assertEqual(
+                (root / "params.yaml").read_text(encoding="utf-8"),
+                textwrap.dedent(
+                    """\
+                    "train":
+                      "lr": 0.001
+                    """
+                ),
+            )
+
     def test_writes_dvc_and_params_files(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
