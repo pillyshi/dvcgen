@@ -75,6 +75,38 @@ print(declarations.outs)
 print(declarations.params)
 ```
 
+## Release
+
+Publishing is intentionally manual while the project is early stage. Build and
+validate artifacts before uploading anything:
+
+```bash
+uv run python -m build
+uv run twine check dist/*
+```
+
+Use TestPyPI first when rehearsing a release. Create a TestPyPI API token, then
+upload with the token as the password:
+
+```bash
+uv run twine upload --repository testpypi dist/*
+```
+
+Use the production PyPI repository only when the version, changelog, and package
+name decision are ready:
+
+```bash
+uv run twine upload dist/*
+```
+
+For both repositories, use `__token__` as the username and the repository API
+token as the password. Avoid committing tokens or storing them in project files.
+
+Before the first production upload, decide whether to publish the current
+minimal release to reserve the `dvcgen` package name on PyPI. Once a version is
+uploaded to PyPI or TestPyPI, that exact version cannot be uploaded again; bump
+the version before retrying with changed artifacts.
+
 ## Planned MVP
 
 The intended MVP is:
