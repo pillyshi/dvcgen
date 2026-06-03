@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from dvcgen.inspect import (
+    OutputDeclaration,
     ParamDeclaration,
     PathDeclaration,
     SourceDeclarations,
@@ -41,7 +42,7 @@ class InspectSourceTest(unittest.TestCase):
                     ),
                 ),
                 outs=(
-                    PathDeclaration(
+                    OutputDeclaration(
                         target="MODEL",
                         path="models/model.pkl",
                         lineno=5,
@@ -170,8 +171,53 @@ class InspectFileTest(unittest.TestCase):
         )
         self.assertEqual(
             declarations[1].outs,
-            (PathDeclaration("MODEL", "models/model.pkl", 1),),
+            (OutputDeclaration("MODEL", "models/model.pkl", 1),),
         )
+
+    def test_extracts_output_options(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                MODEL = out(
+                    "models/model.pkl",
+                    cache=False,
+                    remote="s3",
+                    persist=True,
+                    desc="trained model",
+                    push=False,
+                )
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.outs,
+            (
+                OutputDeclaration(
+                    target="MODEL",
+                    path="models/model.pkl",
+                    lineno=2,
+                    cache=False,
+                    remote="s3",
+                    persist=True,
+                    desc="trained model",
+                    push=False,
+                ),
+            ),
+        )
+
+    def test_ignores_outputs_with_unsupported_options(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                BAD_NAME = out("models/name.pkl", unknown=True)
+                BAD_VALUE = out("models/value.pkl", cache="false")
+                DYNAMIC = out("models/dynamic.pkl", persist=compute_value())
+                """
+            )
+        )
+
+        self.assertEqual(declarations.outs, ())
 
 
 if __name__ == "__main__":

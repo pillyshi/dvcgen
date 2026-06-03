@@ -6,7 +6,12 @@ from pathlib import Path
 
 from dvcgen.cli import main
 from dvcgen.generate import dvc_document, dump_yaml, params_document
-from dvcgen.inspect import ParamDeclaration, PathDeclaration, SourceDeclarations
+from dvcgen.inspect import (
+    OutputDeclaration,
+    ParamDeclaration,
+    PathDeclaration,
+    SourceDeclarations,
+)
 
 
 class GenerateDocumentTest(unittest.TestCase):
@@ -15,7 +20,7 @@ class GenerateDocumentTest(unittest.TestCase):
             SourceDeclarations(
                 source="pipeline/train.py",
                 deps=(PathDeclaration("TRAIN_DATA", "data/processed.csv", 4),),
-                outs=(PathDeclaration("MODEL", "models/model.pkl", 5),),
+                outs=(OutputDeclaration("MODEL", "models/model.pkl", 5),),
                 params=(ParamDeclaration("LR", "train.lr", 0.001, 7),),
             ),
         )
@@ -32,6 +37,44 @@ class GenerateDocumentTest(unittest.TestCase):
                         ],
                         "outs": ["models/model.pkl"],
                         "params": ["train.lr"],
+                    },
+                },
+            },
+        )
+
+    def test_builds_dvc_document_with_output_options(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(
+                    OutputDeclaration(
+                        "MODEL",
+                        "models/model.pkl",
+                        1,
+                        cache=False,
+                        persist=True,
+                    ),
+                ),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                        "outs": [
+                            {
+                                "models/model.pkl": {
+                                    "cache": False,
+                                    "persist": True,
+                                },
+                            },
+                        ],
                     },
                 },
             },
@@ -192,6 +235,49 @@ class CliGenerateTest(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(stdout.getvalue(), "Wrote dvc.yaml and params.yaml\n")
+
+    def test_writes_output_options(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            script.write_text(
+                textwrap.dedent(
+                    """\
+                    from dvcgen import out
+
+                    MODEL = out("models/model.pkl", cache=False, persist=True)
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            original_directory = Path.cwd()
+            try:
+                import os
+
+                os.chdir(root)
+                exit_code = main(["train.py"])
+            finally:
+                os.chdir(original_directory)
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                (root / "dvc.yaml").read_text(encoding="utf-8"),
+                textwrap.dedent(
+                    """\
+                    "stages":
+                      "train":
+                        "cmd": "python train.py"
+                        "deps":
+                          - "train.py"
+                        "outs":
+                          -
+                            "models/model.pkl":
+                              "cache": false
+                              "persist": true
+                    """
+                ),
+            )
 
     def test_requires_at_least_one_script(self):
         stderr = io.StringIO()

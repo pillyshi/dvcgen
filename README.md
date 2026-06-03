@@ -126,6 +126,17 @@ MODEL = out("models/model.pkl")
 LR = param("train.lr", 0.001)
 ```
 
+`out()` also accepts DVC output options as keyword arguments:
+
+```python
+MODEL = out("models/model.pkl", cache=False, persist=True)
+```
+
+Supported output options are `cache`, `remote`, `persist`, `desc`, and `push`.
+Plain `out("path")` declarations continue to generate simple string entries.
+Metrics and plots are separate DVC stage metadata and are not modeled as
+`out()` options.
+
 Running:
 
 ```bash
