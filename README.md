@@ -14,10 +14,10 @@ Implemented today:
 - A Python package named `dvcgen`
 - A `dvcgen` console command
 - CLI argument parsing for pipeline script paths
+- Public declaration helpers: `dep()`, `out()`, and `param()`
 
 Not implemented yet:
 
-- Public declaration helpers such as `dep()`, `out()`, and `param()`
 - Python script inspection
 - `dvc.yaml` generation
 - `params.yaml` generation
@@ -61,7 +61,7 @@ The intended MVP is:
 2. `dvcgen` inspects those declarations without executing the scripts.
 3. `dvcgen` writes `dvc.yaml` and `params.yaml`.
 
-Example of the planned API:
+Example API:
 
 ```python
 from dvcgen import dep, out, param
@@ -71,5 +71,3 @@ MODEL = out("models/model.pkl")
 
 LR = param("train.lr", 0.001)
 ```
-
-This API is not available yet.
