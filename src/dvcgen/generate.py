@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -104,11 +105,12 @@ def _mapping_lines(value: Mapping[str, Any], indent: int) -> list[str]:
 
     for key in sorted(value):
         item = value[key]
+        yaml_key = _string(key)
         if isinstance(item, (Mapping, list)):
-            lines.append(f"{prefix}{key}:")
+            lines.append(f"{prefix}{yaml_key}:")
             lines.extend(_yaml_lines(item, indent + 2))
         else:
-            lines.append(f"{prefix}{key}: {_scalar(item)}")
+            lines.append(f"{prefix}{yaml_key}: {_scalar(item)}")
 
     return lines
 
@@ -135,5 +137,9 @@ def _scalar(value: Any) -> str:
     if isinstance(value, (int, float)):
         return str(value)
     if isinstance(value, str):
-        return value
+        return _string(value)
     raise TypeError(f"unsupported YAML value: {value!r}")
+
+
+def _string(value: str) -> str:
+    return json.dumps(value)

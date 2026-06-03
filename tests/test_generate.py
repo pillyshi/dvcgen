@@ -76,11 +76,40 @@ class GenerateDocumentTest(unittest.TestCase):
             dump_yaml(document),
             textwrap.dedent(
                 """\
-                data:
-                  enabled: true
-                train:
-                  epochs: 10
-                  lr: 0.001
+                "data":
+                  "enabled": true
+                "train":
+                  "epochs": 10
+                  "lr": 0.001
+                """
+            ),
+        )
+
+    def test_yaml_quotes_strings_to_preserve_literal_values(self):
+        document = {
+            "train": {
+                "enabled": "false",
+                "empty": "",
+                "label": "#prod",
+                "nothing": "null",
+                "ratio": "1.0",
+                "with:colon": "path: value # comment",
+                "escaped": 'quote " and slash \\',
+            },
+        }
+
+        self.assertEqual(
+            dump_yaml(document),
+            textwrap.dedent(
+                """\
+                "train":
+                  "empty": ""
+                  "enabled": "false"
+                  "escaped": "quote \\" and slash \\\\"
+                  "label": "#prod"
+                  "nothing": "null"
+                  "ratio": "1.0"
+                  "with:colon": "path: value # comment"
                 """
             ),
         )
@@ -118,16 +147,16 @@ class CliGenerateTest(unittest.TestCase):
                 (root / "dvc.yaml").read_text(encoding="utf-8"),
                 textwrap.dedent(
                     """\
-                    stages:
-                      train:
-                        cmd: python train.py
-                        deps:
-                          - train.py
-                          - data/processed.csv
-                        outs:
-                          - models/model.pkl
-                        params:
-                          - train.lr
+                    "stages":
+                      "train":
+                        "cmd": "python train.py"
+                        "deps":
+                          - "train.py"
+                          - "data/processed.csv"
+                        "outs":
+                          - "models/model.pkl"
+                        "params":
+                          - "train.lr"
                     """
                 ),
             )
@@ -135,8 +164,8 @@ class CliGenerateTest(unittest.TestCase):
                 (root / "params.yaml").read_text(encoding="utf-8"),
                 textwrap.dedent(
                     """\
-                    train:
-                      lr: 0.001
+                    "train":
+                      "lr": 0.001
                     """
                 ),
             )

@@ -87,21 +87,21 @@ dvcgen pipeline/train.py
 Generates `dvc.yaml`:
 
 ```yaml
-stages:
-  train:
-    cmd: python pipeline/train.py
-    deps:
-      - pipeline/train.py
-      - data/processed.csv
-    outs:
-      - models/model.pkl
-    params:
-      - train.lr
+"stages":
+  "train":
+    "cmd": "python pipeline/train.py"
+    "deps":
+      - "pipeline/train.py"
+      - "data/processed.csv"
+    "outs":
+      - "models/model.pkl"
+    "params":
+      - "train.lr"
 ```
 
 And `params.yaml`:
 
 ```yaml
-train:
-  lr: 0.001
+"train":
+  "lr": 0.001
 ```
