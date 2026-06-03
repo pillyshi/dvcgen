@@ -1,0 +1,178 @@
+import tempfile
+import textwrap
+import unittest
+from pathlib import Path
+
+from dvcgen.inspect import (
+    ParamDeclaration,
+    PathDeclaration,
+    SourceDeclarations,
+    inspect_file,
+    inspect_files,
+    inspect_source,
+)
+
+
+class InspectSourceTest(unittest.TestCase):
+    def test_extracts_readme_level_declarations(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                from dvcgen import dep, out, param
+
+                TRAIN_DATA = dep("data/processed.csv")
+                MODEL = out("models/model.pkl")
+
+                LR = param("train.lr", 0.001)
+                """
+            ),
+            source="pipeline/train.py",
+        )
+
+        self.assertEqual(
+            declarations,
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(
+                    PathDeclaration(
+                        target="TRAIN_DATA",
+                        path="data/processed.csv",
+                        lineno=4,
+                    ),
+                ),
+                outs=(
+                    PathDeclaration(
+                        target="MODEL",
+                        path="models/model.pkl",
+                        lineno=5,
+                    ),
+                ),
+                params=(
+                    ParamDeclaration(
+                        target="LR",
+                        name="train.lr",
+                        default=0.001,
+                        lineno=7,
+                    ),
+                ),
+            ),
+        )
+
+    def test_extracts_literal_parameter_defaults(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                EPOCHS = param("train.epochs", 10)
+                NAME = param("train.name", "baseline")
+                ENABLED = param("train.enabled", True)
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.params,
+            (
+                ParamDeclaration("EPOCHS", "train.epochs", 10, 2),
+                ParamDeclaration("NAME", "train.name", "baseline", 3),
+                ParamDeclaration("ENABLED", "train.enabled", True, 4),
+            ),
+        )
+
+    def test_ignores_unsupported_forms(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                import dvcgen
+
+                dynamic_path = "data/input.csv"
+                DEP = dep(dynamic_path)
+                OUT = dvcgen.out("models/model.pkl")
+                PARAM = param("train.lr", compute_default())
+                KWARG = dep(path="data/kwarg.csv")
+                FIRST = SECOND = dep("data/multiple.csv")
+
+                def build():
+                    NESTED = dep("data/nested.csv")
+                """
+            )
+        )
+
+        self.assertEqual(declarations.deps, ())
+        self.assertEqual(declarations.outs, ())
+        self.assertEqual(declarations.params, ())
+
+    def test_does_not_execute_source_code(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                DATA = dep("data/input.csv")
+                raise RuntimeError("should not execute")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (PathDeclaration("DATA", "data/input.csv", 2),),
+        )
+
+    def test_supports_simple_annotated_assignments(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                TRAIN_DATA: str = dep("data/processed.csv")
+                LR: float = param("train.lr", 0.001)
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (PathDeclaration("TRAIN_DATA", "data/processed.csv", 2),),
+        )
+        self.assertEqual(
+            declarations.params,
+            (ParamDeclaration("LR", "train.lr", 0.001, 3),),
+        )
+
+
+class InspectFileTest(unittest.TestCase):
+    def test_inspect_file_returns_declarations_for_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pipeline.py"
+            path.write_text('DATA = dep("data/input.csv")\n', encoding="utf-8")
+
+            declarations = inspect_file(path)
+
+        self.assertEqual(
+            declarations,
+            SourceDeclarations(
+                source=str(path),
+                deps=(PathDeclaration("DATA", "data/input.csv", 1),),
+                outs=(),
+                params=(),
+            ),
+        )
+
+    def test_inspect_files_returns_declarations_per_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.py"
+            second = Path(directory) / "second.py"
+            first.write_text('DATA = dep("data/input.csv")\n', encoding="utf-8")
+            second.write_text('MODEL = out("models/model.pkl")\n', encoding="utf-8")
+
+            declarations = inspect_files([first, second])
+
+        self.assertEqual(len(declarations), 2)
+        self.assertEqual(
+            declarations[0].deps,
+            (PathDeclaration("DATA", "data/input.csv", 1),),
+        )
+        self.assertEqual(
+            declarations[1].outs,
+            (PathDeclaration("MODEL", "models/model.pkl", 1),),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
