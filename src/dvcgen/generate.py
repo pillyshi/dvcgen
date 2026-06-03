@@ -7,7 +7,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from dvcgen.inspect import SourceDeclarations
+from dvcgen.inspect import OutputDeclaration, SourceDeclarations
 
 
 def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
@@ -28,7 +28,7 @@ def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
         }
 
         if source_declarations.outs:
-            stage["outs"] = [out.path for out in source_declarations.outs]
+            stage["outs"] = [_out_entry(out) for out in source_declarations.outs]
         if source_declarations.params:
             stage["params"] = sorted(param.name for param in source_declarations.params)
 
@@ -71,6 +71,23 @@ def dump_yaml(value: Any) -> str:
 
 def _stage_name(declarations: SourceDeclarations) -> str:
     return Path(declarations.source).stem
+
+
+def _out_entry(output: OutputDeclaration) -> str | dict[str, dict[str, Any]]:
+    options = {
+        name: value
+        for name, value in {
+            "cache": output.cache,
+            "remote": output.remote,
+            "persist": output.persist,
+            "desc": output.desc,
+            "push": output.push,
+        }.items()
+        if value is not None
+    }
+    if not options:
+        return output.path
+    return {output.path: options}
 
 
 def _assign_dotted(document: dict[str, Any], name: str, value: Any) -> None:

@@ -8,7 +8,15 @@ def dep(path):
     return path
 
 
-def out(path):
+def out(
+    path,
+    *,
+    cache=None,
+    remote=None,
+    persist=None,
+    desc=None,
+    push=None,
+):
     """Declare a pipeline output and return its runtime value."""
     return path
 

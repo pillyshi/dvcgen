@@ -18,6 +18,20 @@ class PathDeclaration:
 
 
 @dataclass(frozen=True)
+class OutputDeclaration:
+    """An output declaration extracted from source code."""
+
+    target: str
+    path: str
+    lineno: int
+    cache: Optional[bool] = None
+    remote: Optional[str] = None
+    persist: Optional[bool] = None
+    desc: Optional[str] = None
+    push: Optional[bool] = None
+
+
+@dataclass(frozen=True)
 class ParamDeclaration:
     """A parameter declaration extracted from source code."""
 
@@ -33,7 +47,7 @@ class SourceDeclarations:
 
     source: str
     deps: tuple[PathDeclaration, ...]
-    outs: tuple[PathDeclaration, ...]
+    outs: tuple[OutputDeclaration, ...]
     params: tuple[ParamDeclaration, ...]
 
 
@@ -58,7 +72,7 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
     """Parse Python source and return supported top-level declarations."""
     tree = ast.parse(source_code, filename=source)
     deps: list[PathDeclaration] = []
-    outs: list[PathDeclaration] = []
+    outs: list[OutputDeclaration] = []
     params: list[ParamDeclaration] = []
 
     for statement in tree.body:
@@ -76,9 +90,9 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
             if path_declaration is not None:
                 deps.append(path_declaration)
         elif call_name == "out":
-            path_declaration = _path_declaration(target, value)
-            if path_declaration is not None:
-                outs.append(path_declaration)
+            output_declaration = _output_declaration(target, value)
+            if output_declaration is not None:
+                outs.append(output_declaration)
         elif call_name == "param":
             param_declaration = _param_declaration(target, value)
             if param_declaration is not None:
@@ -130,6 +144,34 @@ def _path_declaration(target: str, call: ast.Call) -> Optional[PathDeclaration]:
     return PathDeclaration(target=target, path=path, lineno=call.lineno)
 
 
+def _output_declaration(target: str, call: ast.Call) -> Optional[OutputDeclaration]:
+    if len(call.args) != 1:
+        return None
+
+    path = _literal(call.args[0])
+    if not isinstance(path, str):
+        return None
+
+    options: dict[str, Any] = {}
+    for keyword in call.keywords:
+        if keyword.arg not in _OUTPUT_OPTION_TYPES:
+            return None
+        value = _literal(keyword.value)
+        if value is _UNSUPPORTED:
+            return None
+        expected_type = _OUTPUT_OPTION_TYPES[keyword.arg]
+        if not isinstance(value, expected_type):
+            return None
+        options[keyword.arg] = value
+
+    return OutputDeclaration(
+        target=target,
+        path=path,
+        lineno=call.lineno,
+        **options,
+    )
+
+
 def _param_declaration(target: str, call: ast.Call) -> Optional[ParamDeclaration]:
     if len(call.args) != 2 or call.keywords:
         return None
@@ -151,6 +193,13 @@ def _param_declaration(target: str, call: ast.Call) -> Optional[ParamDeclaration
 
 
 _UNSUPPORTED = object()
+_OUTPUT_OPTION_TYPES = {
+    "cache": bool,
+    "remote": str,
+    "persist": bool,
+    "desc": str,
+    "push": bool,
+}
 
 
 def _literal(node: ast.AST) -> Any:
