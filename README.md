@@ -15,14 +15,14 @@ Implemented today:
 - A `dvcgen` console command
 - CLI argument parsing for pipeline script paths
 - Public declaration helpers: `dep()`, `out()`, and `param()`
+- Python script inspection for top-level literal declarations
 
 Not implemented yet:
 
-- Python script inspection
 - `dvc.yaml` generation
 - `params.yaml` generation
 
-Those features are planned for the first MVP milestone.
+Generation features are planned for the first MVP milestone.
 
 ## Installation
 
@@ -52,6 +52,17 @@ dvcgen pipeline/preprocess.py pipeline/train.py
 
 At this stage, the command validates the CLI shape and exits without generating
 files. Generation behavior will be added in later MVP issues.
+
+Inspect declarations from Python without executing the pipeline script:
+
+```python
+from dvcgen.inspect import inspect_file
+
+declarations = inspect_file("pipeline/train.py")
+print(declarations.deps)
+print(declarations.outs)
+print(declarations.params)
+```
 
 ## Planned MVP
 
