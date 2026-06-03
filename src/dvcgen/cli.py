@@ -6,6 +6,8 @@ import argparse
 from collections.abc import Sequence
 
 from dvcgen import __version__
+from dvcgen.generate import write_files
+from dvcgen.inspect import inspect_files
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,5 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
-    parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.scripts:
+        write_files(inspect_files(args.scripts))
     return 0
