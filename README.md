@@ -16,13 +16,8 @@ Implemented today:
 - CLI argument parsing for pipeline script paths
 - Public declaration helpers: `dep()`, `out()`, and `param()`
 - Python script inspection for top-level literal declarations
-
-Not implemented yet:
-
 - `dvc.yaml` generation
 - `params.yaml` generation
-
-Generation features are planned for the first MVP milestone.
 
 ## Installation
 
@@ -50,8 +45,8 @@ The command currently accepts Python pipeline scripts as positional arguments:
 dvcgen pipeline/preprocess.py pipeline/train.py
 ```
 
-At this stage, the command validates the CLI shape and exits without generating
-files. Generation behavior will be added in later MVP issues.
+The command writes `dvc.yaml` and `params.yaml` in the current directory.
+Stage names are derived from input Python filenames.
 
 Inspect declarations from Python without executing the pipeline script:
 
@@ -81,4 +76,32 @@ TRAIN_DATA = dep("data/processed.csv")
 MODEL = out("models/model.pkl")
 
 LR = param("train.lr", 0.001)
+```
+
+Running:
+
+```bash
+dvcgen pipeline/train.py
+```
+
+Generates `dvc.yaml`:
+
+```yaml
+"stages":
+  "train":
+    "cmd": "python pipeline/train.py"
+    "deps":
+      - "pipeline/train.py"
+      - "data/processed.csv"
+    "outs":
+      - "models/model.pkl"
+    "params":
+      - "train.lr"
+```
+
+And `params.yaml`:
+
+```yaml
+"train":
+  "lr": 0.001
 ```
