@@ -7,13 +7,12 @@ from lightweight declarations embedded in Python pipeline scripts.
 
 ## Current Status
 
-This package is currently in scaffold form.
-
-Implemented today:
+Implemented:
 
 - A Python package named `dvcgen`
 - A `dvcgen` console command
 - CLI argument parsing for pipeline script paths
+- CLI input validation and overwrite protection
 - Public declaration helpers: `dep()`, `out()`, and `param()`
 - Python script inspection for top-level literal declarations
 - `dvc.yaml` generation
@@ -39,14 +38,31 @@ Show CLI help:
 dvcgen --help
 ```
 
-The command currently accepts Python pipeline scripts as positional arguments:
+Generate DVC files from one or more Python pipeline scripts:
 
 ```bash
-dvcgen pipeline/preprocess.py pipeline/train.py
+dvcgen pipeline/*.py
 ```
 
 The command writes `dvc.yaml` and `params.yaml` in the current directory.
-Stage names are derived from input Python filenames.
+Stage names are derived from input Python filenames. For example,
+`pipeline/train.py` becomes the `train` stage.
+
+By default, `dvcgen` refuses to overwrite existing `dvc.yaml` or `params.yaml`
+files. Use `--force` when you intentionally want to replace them:
+
+```bash
+dvcgen --force pipeline/*.py
+```
+
+Write files to another directory with `--output-dir`:
+
+```bash
+dvcgen --output-dir generated pipeline/*.py
+```
+
+Bad inputs fail with an error message and a non-zero exit code. Successful runs
+print the files that were written.
 
 Inspect declarations from Python without executing the pipeline script:
 
