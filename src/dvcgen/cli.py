@@ -6,7 +6,7 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 import sys
-from typing import TextIO
+from typing import Optional, TextIO
 
 from dvcgen import __version__
 from dvcgen.generate import write_files
@@ -44,9 +44,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(
-    argv: Sequence[str] | None = None,
-    stdout: TextIO | None = None,
-    stderr: TextIO | None = None,
+    argv: Optional[Sequence[str]] = None,
+    stdout: Optional[TextIO] = None,
+    stderr: Optional[TextIO] = None,
 ) -> int:
     stdout = sys.stdout if stdout is None else stdout
     stderr = sys.stderr if stderr is None else stderr
@@ -97,7 +97,7 @@ def _validation_error(
     output_dir: Path,
     output_paths: Sequence[Path],
     force: bool,
-) -> str | None:
+) -> Optional[str]:
     for script_path in script_paths:
         if not script_path.exists():
             return f"input script not found: {script_path}"
