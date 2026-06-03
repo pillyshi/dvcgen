@@ -11,7 +11,7 @@ from dvcgen import __version__
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dvcgen",
-        description="Generate dvc.yaml and params.yaml from Python pipeline scripts.",
+        description="Initial dvcgen CLI scaffold for Python pipeline script paths.",
     )
     parser.add_argument(
         "scripts",
