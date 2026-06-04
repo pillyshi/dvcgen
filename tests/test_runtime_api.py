@@ -1,6 +1,6 @@
 import unittest
 
-from dvcgen import dep, out, param
+from dvcgen import dep, out, param, stage
 
 
 class RuntimeApiTest(unittest.TestCase):
@@ -18,6 +18,17 @@ class RuntimeApiTest(unittest.TestCase):
 
     def test_param_returns_default(self):
         self.assertEqual(param("train.lr", 0.001), 0.001)
+
+    def test_stage_returns_no_runtime_value(self):
+        self.assertIsNone(
+            stage(
+                cmd="python -m pipeline.train",
+                wdir=".",
+                desc="Train model",
+                frozen=False,
+                always_changed=True,
+            )
+        )
 
 
 if __name__ == "__main__":

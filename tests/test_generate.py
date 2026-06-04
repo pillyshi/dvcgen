@@ -11,6 +11,7 @@ from dvcgen.inspect import (
     ParamDeclaration,
     PathDeclaration,
     SourceDeclarations,
+    StageDeclaration,
 )
 
 
@@ -75,6 +76,63 @@ class GenerateDocumentTest(unittest.TestCase):
                                 },
                             },
                         ],
+                    },
+                },
+            },
+        )
+
+    def test_builds_dvc_document_with_stage_metadata(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(
+                    lineno=1,
+                    cmd="python -m pipeline.train",
+                    wdir=".",
+                    desc="Train model",
+                    frozen=False,
+                    always_changed=True,
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "python -m pipeline.train",
+                        "deps": ["pipeline/train.py"],
+                        "wdir": ".",
+                        "desc": "Train model",
+                        "frozen": False,
+                        "always_changed": True,
+                    },
+                },
+            },
+        )
+
+    def test_stage_cmd_override_does_not_emit_omitted_optional_fields(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, cmd="python -m pipeline.train"),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "python -m pipeline.train",
+                        "deps": ["pipeline/train.py"],
                     },
                 },
             },
@@ -275,6 +333,54 @@ class CliGenerateTest(unittest.TestCase):
                             "models/model.pkl":
                               "cache": false
                               "persist": true
+                    """
+                ),
+            )
+
+    def test_writes_stage_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            script.write_text(
+                textwrap.dedent(
+                    """\
+                    from dvcgen import stage
+
+                    stage(
+                        cmd="python -m pipeline.train",
+                        wdir=".",
+                        desc="Train model",
+                        frozen=False,
+                        always_changed=True,
+                    )
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            original_directory = Path.cwd()
+            try:
+                import os
+
+                os.chdir(root)
+                exit_code = main(["train.py"])
+            finally:
+                os.chdir(original_directory)
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                (root / "dvc.yaml").read_text(encoding="utf-8"),
+                textwrap.dedent(
+                    """\
+                    "stages":
+                      "train":
+                        "always_changed": true
+                        "cmd": "python -m pipeline.train"
+                        "deps":
+                          - "train.py"
+                        "desc": "Train model"
+                        "frozen": false
+                        "wdir": "."
                     """
                 ),
             )

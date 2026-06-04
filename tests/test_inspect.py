@@ -8,6 +8,7 @@ from dvcgen.inspect import (
     ParamDeclaration,
     PathDeclaration,
     SourceDeclarations,
+    StageDeclaration,
     inspect_file,
     inspect_files,
     inspect_source,
@@ -19,7 +20,9 @@ class InspectSourceTest(unittest.TestCase):
         declarations = inspect_source(
             textwrap.dedent(
                 """
-                from dvcgen import dep, out, param
+                from dvcgen import dep, out, param, stage
+
+                stage(cmd="python -m pipeline.train")
 
                 TRAIN_DATA = dep("data/processed.csv")
                 MODEL = out("models/model.pkl")
@@ -38,14 +41,14 @@ class InspectSourceTest(unittest.TestCase):
                     PathDeclaration(
                         target="TRAIN_DATA",
                         path="data/processed.csv",
-                        lineno=4,
+                        lineno=6,
                     ),
                 ),
                 outs=(
                     OutputDeclaration(
                         target="MODEL",
                         path="models/model.pkl",
-                        lineno=5,
+                        lineno=7,
                     ),
                 ),
                 params=(
@@ -53,8 +56,12 @@ class InspectSourceTest(unittest.TestCase):
                         target="LR",
                         name="train.lr",
                         default=0.001,
-                        lineno=7,
+                        lineno=9,
                     ),
+                ),
+                stage=StageDeclaration(
+                    lineno=4,
+                    cmd="python -m pipeline.train",
                 ),
             ),
         )
@@ -135,6 +142,59 @@ class InspectSourceTest(unittest.TestCase):
             declarations.params,
             (ParamDeclaration("LR", "train.lr", 0.001, 3),),
         )
+
+    def test_extracts_stage_metadata(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(
+                    cmd="python -m pipeline.train",
+                    wdir=".",
+                    desc="Train model",
+                    frozen=False,
+                    always_changed=True,
+                )
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(
+                lineno=2,
+                cmd="python -m pipeline.train",
+                wdir=".",
+                desc="Train model",
+                frozen=False,
+                always_changed=True,
+            ),
+        )
+
+    def test_rejects_duplicate_stage_declarations(self):
+        with self.assertRaisesRegex(ValueError, r"duplicate stage\(\) declaration"):
+            inspect_source(
+                textwrap.dedent(
+                    """
+                    stage(cmd="python train.py")
+                    stage(cmd="python other.py")
+                    """
+                ),
+                source="pipeline/train.py",
+            )
+
+    def test_ignores_stage_with_unsupported_options(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(cmd=build_command())
+                stage(wdir=1)
+                stage(unknown=True)
+                stage("python train.py")
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
 
 
 class InspectFileTest(unittest.TestCase):

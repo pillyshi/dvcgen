@@ -42,6 +42,18 @@ class ParamDeclaration:
 
 
 @dataclass(frozen=True)
+class StageDeclaration:
+    """Stage metadata extracted from source code."""
+
+    lineno: int
+    cmd: Optional[str] = None
+    wdir: Optional[str] = None
+    desc: Optional[str] = None
+    frozen: Optional[bool] = None
+    always_changed: Optional[bool] = None
+
+
+@dataclass(frozen=True)
 class SourceDeclarations:
     """Declarations extracted from a single Python source file."""
 
@@ -49,6 +61,7 @@ class SourceDeclarations:
     deps: tuple[PathDeclaration, ...]
     outs: tuple[OutputDeclaration, ...]
     params: tuple[ParamDeclaration, ...]
+    stage: Optional[StageDeclaration] = None
 
 
 PathLike = Union[str, Path]
@@ -74,8 +87,16 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
     deps: list[PathDeclaration] = []
     outs: list[OutputDeclaration] = []
     params: list[ParamDeclaration] = []
+    stage_declaration: Optional[StageDeclaration] = None
 
     for statement in tree.body:
+        expression_call = _expression_call(statement)
+        if expression_call is not None and _simple_call_name(expression_call) == "stage":
+            if stage_declaration is not None:
+                raise ValueError(f"duplicate stage() declaration in {source}")
+            stage_declaration = _stage_declaration(expression_call)
+            continue
+
         target = _assignment_target(statement)
         if target is None:
             continue
@@ -103,7 +124,14 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
         deps=tuple(deps),
         outs=tuple(outs),
         params=tuple(params),
+        stage=stage_declaration,
     )
+
+
+def _expression_call(statement: ast.stmt) -> Optional[ast.Call]:
+    if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call):
+        return statement.value
+    return None
 
 
 def _assignment_target(statement: ast.stmt) -> Optional[str]:
@@ -192,6 +220,25 @@ def _param_declaration(target: str, call: ast.Call) -> Optional[ParamDeclaration
     )
 
 
+def _stage_declaration(call: ast.Call) -> Optional[StageDeclaration]:
+    if call.args:
+        return None
+
+    options: dict[str, Any] = {}
+    for keyword in call.keywords:
+        if keyword.arg not in _STAGE_OPTION_TYPES:
+            return None
+        value = _literal(keyword.value)
+        if value is _UNSUPPORTED:
+            return None
+        expected_type = _STAGE_OPTION_TYPES[keyword.arg]
+        if not isinstance(value, expected_type):
+            return None
+        options[keyword.arg] = value
+
+    return StageDeclaration(lineno=call.lineno, **options)
+
+
 _UNSUPPORTED = object()
 _OUTPUT_OPTION_TYPES = {
     "cache": bool,
@@ -199,6 +246,13 @@ _OUTPUT_OPTION_TYPES = {
     "persist": bool,
     "desc": str,
     "push": bool,
+}
+_STAGE_OPTION_TYPES = {
+    "cmd": str,
+    "wdir": str,
+    "desc": str,
+    "frozen": bool,
+    "always_changed": bool,
 }
 
 
