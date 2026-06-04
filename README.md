@@ -13,7 +13,7 @@ Implemented:
 - A `dvcgen` console command
 - CLI argument parsing for pipeline script paths
 - CLI input validation and overwrite protection
-- Public declaration helpers: `dep()`, `out()`, and `param()`
+- Public declaration helpers: `stage()`, `dep()`, `out()`, and `param()`
 - Python script inspection for top-level literal declarations
 - `dvc.yaml` generation
 - `params.yaml` generation
@@ -118,13 +118,39 @@ The intended MVP is:
 Example API:
 
 ```python
-from dvcgen import dep, out, param
+from dvcgen import dep, out, param, stage
+
+stage(
+    cmd="python -m pipeline.train",
+    wdir=".",
+    desc="Train model",
+    frozen=False,
+    always_changed=False,
+)
 
 TRAIN_DATA = dep("data/processed.csv")
 MODEL = out("models/model.pkl")
 
 LR = param("train.lr", 0.001)
 ```
+
+`stage()` declares metadata for the generated DVC stage. It is optional; when it
+is omitted, `dvcgen` keeps the default command:
+
+```yaml
+"cmd": "python pipeline/train.py"
+```
+
+Supported stage fields are:
+
+- `cmd`: override the command DVC runs for this stage
+- `wdir`: stage working directory
+- `desc`: human-readable stage description
+- `frozen`: protect the stage from reproduction
+- `always_changed`: always consider the stage changed
+
+`wdir`, `desc`, `frozen`, and `always_changed` are emitted only when explicitly
+provided. Each pipeline script may declare at most one `stage()`.
 
 `out()` also accepts DVC output options as keyword arguments:
 

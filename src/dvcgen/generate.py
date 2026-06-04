@@ -19,14 +19,24 @@ def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
         if stage_name in stages:
             raise ValueError(f"duplicate stage name: {stage_name}")
 
+        stage_metadata = source_declarations.stage
         stage: dict[str, Any] = {
-            "cmd": f"python {source_declarations.source}",
+            "cmd": (
+                stage_metadata.cmd
+                if stage_metadata is not None and stage_metadata.cmd is not None
+                else f"python {source_declarations.source}"
+            ),
             "deps": [
                 source_declarations.source,
                 *(dep.path for dep in source_declarations.deps),
             ],
         }
 
+        if stage_metadata is not None:
+            for name in ("wdir", "desc", "frozen", "always_changed"):
+                value = getattr(stage_metadata, name)
+                if value is not None:
+                    stage[name] = value
         if source_declarations.outs:
             stage["outs"] = [_out_entry(out) for out in source_declarations.outs]
         if source_declarations.params:
