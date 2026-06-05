@@ -46,6 +46,7 @@ class StageDeclaration:
     """Stage metadata extracted from source code."""
 
     lineno: int
+    name: Optional[str] = None
     cmd: Optional[str] = None
     wdir: Optional[str] = None
     desc: Optional[str] = None
@@ -92,9 +93,11 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
     for statement in tree.body:
         expression_call = _expression_call(statement)
         if expression_call is not None and _simple_call_name(expression_call) == "stage":
-            if stage_declaration is not None:
-                raise ValueError(f"duplicate stage() declaration in {source}")
-            stage_declaration = _stage_declaration(expression_call)
+            new_declaration = _stage_declaration(expression_call)
+            if new_declaration is not None:
+                if stage_declaration is not None:
+                    raise ValueError(f"duplicate stage() declaration in {source}")
+                stage_declaration = new_declaration
             continue
 
         target = _assignment_target(statement)
@@ -236,6 +239,11 @@ def _stage_declaration(call: ast.Call) -> Optional[StageDeclaration]:
             return None
         options[keyword.arg] = value
 
+    if "name" in options:
+        options["name"] = options["name"].strip()
+        if not options["name"]:
+            del options["name"]
+
     return StageDeclaration(lineno=call.lineno, **options)
 
 
@@ -248,6 +256,7 @@ _OUTPUT_OPTION_TYPES = {
     "push": bool,
 }
 _STAGE_OPTION_TYPES = {
+    "name": str,
     "cmd": str,
     "wdir": str,
     "desc": str,

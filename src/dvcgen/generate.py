@@ -10,12 +10,22 @@ from typing import Any
 from dvcgen.inspect import OutputDeclaration, SourceDeclarations
 
 
+def _validate_stage_names(declaration_list: list[SourceDeclarations]) -> None:
+    for d in declaration_list:
+        if d.stage is not None and d.stage.name is not None and not d.stage.name.strip():
+            raise ValueError(f"empty stage name in {d.source}")
+
+
 def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
     """Build a dvc.yaml document from source declarations."""
+    declaration_list = list(declarations)
+    _validate_stage_names(declaration_list)
+
     stages: dict[str, dict[str, Any]] = {}
 
-    for source_declarations in sorted(declarations, key=_stage_name):
-        stage_name = _stage_name(source_declarations)
+    for source_declarations, stage_name in (
+        (d, _stage_name(d)) for d in sorted(declaration_list, key=_stage_name)
+    ):
         if stage_name in stages:
             raise ValueError(f"duplicate stage name: {stage_name}")
 
@@ -49,9 +59,12 @@ def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
 
 def params_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
     """Build a params.yaml document from source declarations."""
+    declaration_list = list(declarations)
+    _validate_stage_names(declaration_list)
+
     params: dict[str, Any] = {}
 
-    for source_declarations in sorted(declarations, key=_stage_name):
+    for source_declarations in sorted(declaration_list, key=_stage_name):
         for param in sorted(source_declarations.params, key=lambda item: item.name):
             _assign_dotted(params, param.name, param.default)
 
@@ -80,6 +93,8 @@ def dump_yaml(value: Any) -> str:
 
 
 def _stage_name(declarations: SourceDeclarations) -> str:
+    if declarations.stage is not None and declarations.stage.name is not None:
+        return declarations.stage.name.strip()
     return Path(declarations.source).stem
 
 

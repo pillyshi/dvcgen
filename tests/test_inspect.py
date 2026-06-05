@@ -182,6 +182,21 @@ class InspectSourceTest(unittest.TestCase):
                 source="pipeline/train.py",
             )
 
+    def test_ignores_invalid_stage_after_valid_stage(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(cmd="python train.py")
+                stage(name=123)
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, cmd="python train.py"),
+        )
+
     def test_ignores_stage_with_unsupported_options(self):
         declarations = inspect_source(
             textwrap.dedent(
@@ -195,6 +210,67 @@ class InspectSourceTest(unittest.TestCase):
         )
 
         self.assertIsNone(declarations.stage)
+
+    def test_extracts_stage_name_override(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name="v1_train")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, name="v1_train"),
+        )
+
+    def test_ignores_stage_with_non_string_name(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name=123)
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_whitespace_only_name_falls_back_to_filename_stem(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name="  ")
+                """
+            )
+        )
+
+        self.assertEqual(declarations.stage, StageDeclaration(lineno=2))
+
+    def test_whitespace_only_name_preserves_other_options(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name="  ", cmd="python -m pipeline.train")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, cmd="python -m pipeline.train"),
+        )
+
+    def test_strips_stage_name(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name=" v1_train ")
+                """
+            )
+        )
+
+        self.assertEqual(declarations.stage, StageDeclaration(lineno=2, name="v1_train"))
 
 
 class InspectFileTest(unittest.TestCase):

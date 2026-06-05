@@ -5,13 +5,18 @@ __version__ = "0.3.0"
 
 def stage(
     *,
+    name=None,
     cmd=None,
     wdir=None,
     desc=None,
     frozen=None,
     always_changed=None,
 ):
-    """Declare generated DVC stage metadata."""
+    """Declare generated DVC stage metadata.
+
+    All parameters are static-only: they are read by the dvcgen code
+    generator at build time and have no effect at runtime.
+    """
     return None
 
 

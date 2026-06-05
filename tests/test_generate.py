@@ -138,6 +138,108 @@ class GenerateDocumentTest(unittest.TestCase):
             },
         )
 
+    def test_stage_name_is_stripped_in_stage_name(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name=" v1_train "),
+            ),
+        )
+
+        result = dvc_document(declarations)
+
+        self.assertIn("v1_train", result["stages"])
+        self.assertNotIn(" v1_train ", result["stages"])
+
+    def test_stage_name_override_uses_provided_name(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name="v1_train"),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations),
+            {
+                "stages": {
+                    "v1_train": {
+                        "cmd": "python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_stage_name_defaults_to_filename_stem(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        result = dvc_document(declarations)
+
+        self.assertIn("train", result["stages"])
+
+    def test_stage_empty_name_raises_value_error(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name=""),
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "empty stage name"):
+            dvc_document(declarations)
+
+    def test_stage_whitespace_only_name_raises_value_error(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name="  "),
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "empty stage name"):
+            dvc_document(declarations)
+
+    def test_stage_duplicate_name_override_raises_value_error(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name="shared"),
+            ),
+            SourceDeclarations(
+                source="pipeline/evaluate.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name="shared"),
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "duplicate stage name"):
+            dvc_document(declarations)
+
     def test_builds_nested_params_document_from_dotted_names(self):
         declarations = (
             SourceDeclarations(
