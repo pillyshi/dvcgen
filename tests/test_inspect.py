@@ -182,6 +182,21 @@ class InspectSourceTest(unittest.TestCase):
                 source="pipeline/train.py",
             )
 
+    def test_ignores_invalid_stage_after_valid_stage(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(cmd="python train.py")
+                stage(name=123)
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, cmd="python train.py"),
+        )
+
     def test_ignores_stage_with_unsupported_options(self):
         declarations = inspect_source(
             textwrap.dedent(

@@ -93,9 +93,11 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
     for statement in tree.body:
         expression_call = _expression_call(statement)
         if expression_call is not None and _simple_call_name(expression_call) == "stage":
-            if stage_declaration is not None:
-                raise ValueError(f"duplicate stage() declaration in {source}")
-            stage_declaration = _stage_declaration(expression_call)
+            new_declaration = _stage_declaration(expression_call)
+            if new_declaration is not None:
+                if stage_declaration is not None:
+                    raise ValueError(f"duplicate stage() declaration in {source}")
+                stage_declaration = new_declaration
             continue
 
         target = _assignment_target(statement)
