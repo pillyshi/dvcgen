@@ -289,6 +289,88 @@ class GenerateDocumentTest(unittest.TestCase):
             ),
         )
 
+    def test_foreach_list_of_scalars_wraps_stage_in_do(self):
+        declarations = (
+            SourceDeclarations(
+                source="train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, foreach=[0, 1, 2, 3, 4]),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations),
+            {
+                "stages": {
+                    "train": {
+                        "do": {
+                            "cmd": "python train.py",
+                            "deps": ["train.py"],
+                        },
+                        "foreach": [0, 1, 2, 3, 4],
+                    },
+                },
+            },
+        )
+
+    def test_foreach_list_of_dicts_wraps_stage_in_do(self):
+        declarations = (
+            SourceDeclarations(
+                source="train.py",
+                deps=(),
+                outs=(OutputDeclaration("MODEL", "model_${item.lr}.pkl", 2),),
+                params=(),
+                stage=StageDeclaration(lineno=1, foreach=[{"lr": 0.001}, {"lr": 0.01}]),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations),
+            {
+                "stages": {
+                    "train": {
+                        "do": {
+                            "cmd": "python train.py",
+                            "deps": ["train.py"],
+                            "outs": ["model_${item.lr}.pkl"],
+                        },
+                        "foreach": [{"lr": 0.001}, {"lr": 0.01}],
+                    },
+                },
+            },
+        )
+
+    def test_foreach_dict_wraps_stage_in_do(self):
+        declarations = (
+            SourceDeclarations(
+                source="train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(
+                    lineno=1,
+                    foreach={"small": {"size": 100}, "large": {"size": 1000}},
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations),
+            {
+                "stages": {
+                    "train": {
+                        "do": {
+                            "cmd": "python train.py",
+                            "deps": ["train.py"],
+                        },
+                        "foreach": {"large": {"size": 1000}, "small": {"size": 100}},
+                    },
+                },
+            },
+        )
+
     def test_yaml_quotes_strings_to_preserve_literal_values(self):
         document = {
             "train": {

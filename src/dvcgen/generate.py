@@ -63,7 +63,10 @@ def dvc_document(declarations: Iterable[SourceDeclarations], runner: str | None 
         if source_declarations.params:
             stage["params"] = sorted(param.name for param in source_declarations.params)
 
-        stages[stage_name] = stage
+        if stage_metadata is not None and stage_metadata.foreach is not None:
+            stages[stage_name] = {"do": stage, "foreach": stage_metadata.foreach}
+        else:
+            stages[stage_name] = stage
 
     return {"stages": stages}
 

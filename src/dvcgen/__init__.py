@@ -1,6 +1,6 @@
 """Generate DVC pipeline files from Python declarations."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 def stage(
@@ -11,6 +11,7 @@ def stage(
     desc=None,
     frozen=None,
     always_changed=None,
+    foreach=None,
 ):
     """Declare generated DVC stage metadata.
 
