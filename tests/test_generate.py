@@ -637,5 +637,200 @@ class CliGenerateTest(unittest.TestCase):
             )
 
 
+class RunnerFlagTest(unittest.TestCase):
+    def test_whitespace_only_runner_falls_back_to_default_cmd(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="   "),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_runner_with_trailing_space_is_stripped(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="uv run "),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "uv run python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_empty_runner_falls_back_to_default_cmd(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner=""),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_runner_applies_when_stage_has_name_but_no_cmd(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name="custom_name"),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="uv run"),
+            {
+                "stages": {
+                    "custom_name": {
+                        "cmd": "uv run python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_runner_prepends_to_default_cmd(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="uv run"),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "uv run python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_runner_ignored_when_stage_cmd_is_set(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, cmd="custom_runner train"),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="uv run"),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "custom_runner train",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_runner_cli_flag_prepends_to_default_cmd(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            script.write_text(
+                textwrap.dedent(
+                    """\
+                    from dvcgen import dep, out
+
+                    DATA = dep("data/raw")
+                    MODEL = out("models/model.pkl")
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            original_directory = Path.cwd()
+            try:
+                import os
+
+                os.chdir(root)
+                exit_code = main(["--runner", "uv run", "train.py"])
+            finally:
+                os.chdir(original_directory)
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn(
+                '"cmd": "uv run python train.py"',
+                (root / "dvc.yaml").read_text(encoding="utf-8"),
+            )
+
+    def test_runner_cli_flag_ignored_when_stage_cmd_is_set(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            script.write_text(
+                textwrap.dedent(
+                    """\
+                    from dvcgen import stage
+                    stage(cmd="custom_runner train")
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            original_directory = Path.cwd()
+            try:
+                import os
+
+                os.chdir(root)
+                exit_code = main(["--runner", "uv run", "train.py"])
+            finally:
+                os.chdir(original_directory)
+
+            self.assertEqual(exit_code, 0)
+            dvc_yaml = (root / "dvc.yaml").read_text(encoding="utf-8")
+            self.assertIn('"cmd": "custom_runner train"', dvc_yaml)
+            self.assertNotIn("uv run", dvc_yaml)
+
+
 if __name__ == "__main__":
     unittest.main()

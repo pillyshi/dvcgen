@@ -36,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing dvc.yaml and params.yaml files.",
     )
     parser.add_argument(
+        "--runner",
+        default=None,
+        metavar="PREFIX",
+        help="Prepend PREFIX to the default stage command (e.g. 'uv run', 'poetry run').",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -74,7 +80,7 @@ def main(
 
     try:
         declarations = inspect_files(script_paths)
-        write_files(declarations, dvc_path=dvc_path, params_path=params_path)
+        write_files(declarations, dvc_path=dvc_path, params_path=params_path, runner=args.runner)
     except SyntaxError as syntax_error:
         print(
             f"dvcgen: error: failed to parse {syntax_error.filename}: {syntax_error.msg}",

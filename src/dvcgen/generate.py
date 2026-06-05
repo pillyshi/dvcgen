@@ -16,10 +16,18 @@ def _validate_stage_names(declaration_list: list[SourceDeclarations]) -> None:
             raise ValueError(f"empty stage name in {d.source}")
 
 
-def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
-    """Build a dvc.yaml document from source declarations."""
+def dvc_document(declarations: Iterable[SourceDeclarations], runner: str | None = None) -> dict[str, Any]:
+    """Build a dvc.yaml document from source declarations.
+
+    runner: optional prefix prepended to the default command (e.g. "uv run").
+    Ignored when a stage declares cmd= explicitly. Falsy or whitespace-only values
+    are treated as absent (stripped before use). The caller is responsible for
+    ensuring runner contains only trusted input; its value is written verbatim
+    into dvc.yaml.
+    """
     declaration_list = list(declarations)
     _validate_stage_names(declaration_list)
+    effective_runner = runner.strip() if runner else None
 
     stages: dict[str, dict[str, Any]] = {}
 
@@ -30,11 +38,14 @@ def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
             raise ValueError(f"duplicate stage name: {stage_name}")
 
         stage_metadata = source_declarations.stage
+        default_cmd = f"python {source_declarations.source}"
         stage: dict[str, Any] = {
             "cmd": (
                 stage_metadata.cmd
                 if stage_metadata is not None and stage_metadata.cmd is not None
-                else f"python {source_declarations.source}"
+                else f"{effective_runner} {default_cmd}"
+                if effective_runner
+                else default_cmd
             ),
             "deps": [
                 source_declarations.source,
@@ -75,10 +86,11 @@ def write_files(
     declarations: Sequence[SourceDeclarations],
     dvc_path: str | Path = "dvc.yaml",
     params_path: str | Path = "params.yaml",
+    runner: str | None = None,
 ) -> None:
     """Write dvc.yaml and params.yaml for the supplied declarations."""
     Path(dvc_path).write_text(
-        dump_yaml(dvc_document(declarations)),
+        dump_yaml(dvc_document(declarations, runner=runner)),
         encoding="utf-8",
     )
     Path(params_path).write_text(
