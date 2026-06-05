@@ -236,7 +236,7 @@ class InspectSourceTest(unittest.TestCase):
 
         self.assertIsNone(declarations.stage)
 
-    def test_ignores_stage_with_whitespace_only_name(self):
+    def test_whitespace_only_name_falls_back_to_filename_stem(self):
         declarations = inspect_source(
             textwrap.dedent(
                 """
@@ -245,7 +245,21 @@ class InspectSourceTest(unittest.TestCase):
             )
         )
 
-        self.assertIsNone(declarations.stage)
+        self.assertEqual(declarations.stage, StageDeclaration(lineno=2))
+
+    def test_whitespace_only_name_preserves_other_options(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name="  ", cmd="python -m pipeline.train")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, cmd="python -m pipeline.train"),
+        )
 
     def test_strips_stage_name(self):
         declarations = inspect_source(

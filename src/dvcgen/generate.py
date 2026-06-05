@@ -86,7 +86,7 @@ def dump_yaml(value: Any) -> str:
 
 def _stage_name(declarations: SourceDeclarations) -> str:
     if declarations.stage is not None and declarations.stage.name is not None:
-        return declarations.stage.name
+        return declarations.stage.name.strip()
     return Path(declarations.source).stem
 
 

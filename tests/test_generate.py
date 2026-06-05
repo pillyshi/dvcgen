@@ -138,6 +138,22 @@ class GenerateDocumentTest(unittest.TestCase):
             },
         )
 
+    def test_stage_name_is_stripped_in_stage_name(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name=" v1_train "),
+            ),
+        )
+
+        result = dvc_document(declarations)
+
+        self.assertIn("v1_train", result["stages"])
+        self.assertNotIn(" v1_train ", result["stages"])
+
     def test_stage_name_override_uses_provided_name(self):
         declarations = (
             SourceDeclarations(
