@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from dvcgen.inspect import OutputDeclaration, SourceDeclarations
 
@@ -16,7 +16,7 @@ def _validate_stage_names(declaration_list: list[SourceDeclarations]) -> None:
             raise ValueError(f"empty stage name in {d.source}")
 
 
-def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
+def dvc_document(declarations: Iterable[SourceDeclarations], runner: Optional[str] = None) -> dict[str, Any]:
     """Build a dvc.yaml document from source declarations."""
     declaration_list = list(declarations)
     _validate_stage_names(declaration_list)
@@ -34,6 +34,8 @@ def dvc_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any]:
             "cmd": (
                 stage_metadata.cmd
                 if stage_metadata is not None and stage_metadata.cmd is not None
+                else f"{runner} python {source_declarations.source}"
+                if runner is not None
                 else f"python {source_declarations.source}"
             ),
             "deps": [
@@ -75,10 +77,11 @@ def write_files(
     declarations: Sequence[SourceDeclarations],
     dvc_path: str | Path = "dvc.yaml",
     params_path: str | Path = "params.yaml",
+    runner: Optional[str] = None,
 ) -> None:
     """Write dvc.yaml and params.yaml for the supplied declarations."""
     Path(dvc_path).write_text(
-        dump_yaml(dvc_document(declarations)),
+        dump_yaml(dvc_document(declarations, runner=runner)),
         encoding="utf-8",
     )
     Path(params_path).write_text(
