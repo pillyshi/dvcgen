@@ -351,6 +351,66 @@ class InspectSourceTest(unittest.TestCase):
 
         self.assertIsNone(declarations.stage)
 
+    def test_stage_foreach_forward_ref_to_param(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=FOLDS)
+                FOLDS = param("folds", [0, 1, 2, 3, 4])
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, foreach=[0, 1, 2, 3, 4]),
+        )
+
+    def test_invalid_stage_before_valid_raises_duplicate_error(self):
+        with self.assertRaisesRegex(ValueError, r"duplicate stage\(\) declaration"):
+            inspect_source(
+                textwrap.dedent(
+                    """
+                    stage(foreach=UNDEFINED_VAR)
+                    stage(cmd="python train.py")
+                    """
+                ),
+                source="pipeline/train.py",
+            )
+
+    def test_stage_foreach_empty_list_is_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[])
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_stage_foreach_empty_dict_is_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach={})
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_stage_foreach_tuple_elements_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[(0, 1), (2, 3)])
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
 
 class InspectFileTest(unittest.TestCase):
     def test_inspect_file_returns_declarations_for_path(self):

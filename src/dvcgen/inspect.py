@@ -90,16 +90,28 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
     outs: list[OutputDeclaration] = []
     params: list[ParamDeclaration] = []
     stage_declaration: Optional[StageDeclaration] = None
+    seen_stage_call = False
+
     symbol_table: dict[str, Any] = {}
+    for statement in tree.body:
+        target = _assignment_target(statement)
+        if target is None:
+            continue
+        value = _assignment_value(statement)
+        if isinstance(value, ast.Call) and _simple_call_name(value) == "param":
+            param_decl = _param_declaration(target, value)
+            if param_decl is not None:
+                symbol_table[target] = param_decl.default
 
     for statement in tree.body:
         expression_call = _expression_call(statement)
         if expression_call is not None and _simple_call_name(expression_call) == "stage":
             new_declaration = _stage_declaration(expression_call, symbol_table)
             if new_declaration is not None:
-                if stage_declaration is not None:
+                if seen_stage_call:
                     raise ValueError(f"duplicate stage() declaration in {source}")
                 stage_declaration = new_declaration
+            seen_stage_call = True
             continue
 
         target = _assignment_target(statement)
@@ -123,7 +135,6 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
             param_declaration = _param_declaration(target, value)
             if param_declaration is not None:
                 params.append(param_declaration)
-                symbol_table[target] = param_declaration.default
 
     return SourceDeclarations(
         source=source,
@@ -243,7 +254,7 @@ def _stage_declaration(call: ast.Call, symbol_table: Optional[dict] = None) -> O
                         return None
                 else:
                     return None
-            if not isinstance(value, (list, dict)):
+            if not isinstance(value, (list, dict)) or not value or not _is_yaml_value(value):
                 return None
             options["foreach"] = value
             continue
@@ -281,6 +292,16 @@ _STAGE_OPTION_TYPES = {
     "frozen": bool,
     "always_changed": bool,
 }
+
+
+def _is_yaml_value(value: Any) -> bool:
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return True
+    if isinstance(value, list):
+        return all(_is_yaml_value(item) for item in value)
+    if isinstance(value, dict):
+        return all(isinstance(k, str) and _is_yaml_value(v) for k, v in value.items())
+    return False
 
 
 def _literal(node: ast.AST) -> Any:
