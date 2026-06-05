@@ -20,12 +20,14 @@ def dvc_document(declarations: Iterable[SourceDeclarations], runner: str | None 
     """Build a dvc.yaml document from source declarations.
 
     runner: optional prefix prepended to the default command (e.g. "uv run").
-    Ignored when a stage declares cmd= explicitly. Truthy check — empty strings
-    are treated as absent. The caller is responsible for ensuring runner
-    contains only trusted input; its value is written verbatim into dvc.yaml.
+    Ignored when a stage declares cmd= explicitly. Falsy or whitespace-only values
+    are treated as absent (stripped before use). The caller is responsible for
+    ensuring runner contains only trusted input; its value is written verbatim
+    into dvc.yaml.
     """
     declaration_list = list(declarations)
     _validate_stage_names(declaration_list)
+    effective_runner = runner.strip() if runner else None
 
     stages: dict[str, dict[str, Any]] = {}
 
@@ -37,7 +39,6 @@ def dvc_document(declarations: Iterable[SourceDeclarations], runner: str | None 
 
         stage_metadata = source_declarations.stage
         default_cmd = f"python {source_declarations.source}"
-        effective_runner = runner.strip() if runner else None
         stage: dict[str, Any] = {
             "cmd": (
                 stage_metadata.cmd

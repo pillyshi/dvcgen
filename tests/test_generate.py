@@ -704,6 +704,29 @@ class RunnerFlagTest(unittest.TestCase):
             },
         )
 
+    def test_runner_applies_when_stage_has_name_but_no_cmd(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name="custom_name"),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="uv run"),
+            {
+                "stages": {
+                    "custom_name": {
+                        "cmd": "uv run python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
     def test_runner_prepends_to_default_cmd(self):
         declarations = (
             SourceDeclarations(
