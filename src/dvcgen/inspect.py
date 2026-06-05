@@ -52,6 +52,7 @@ class StageDeclaration:
     desc: Optional[str] = None
     frozen: Optional[bool] = None
     always_changed: Optional[bool] = None
+    foreach: Optional[Union[list, dict]] = None
 
 
 @dataclass(frozen=True)
@@ -89,15 +90,28 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
     outs: list[OutputDeclaration] = []
     params: list[ParamDeclaration] = []
     stage_declaration: Optional[StageDeclaration] = None
+    seen_stage_call = False
+
+    symbol_table: dict[str, Any] = {}
+    for statement in tree.body:
+        target = _assignment_target(statement)
+        if target is None:
+            continue
+        value = _assignment_value(statement)
+        if isinstance(value, ast.Call) and _simple_call_name(value) == "param":
+            param_decl = _param_declaration(target, value)
+            if param_decl is not None:
+                symbol_table[target] = param_decl.default
 
     for statement in tree.body:
         expression_call = _expression_call(statement)
         if expression_call is not None and _simple_call_name(expression_call) == "stage":
-            new_declaration = _stage_declaration(expression_call)
+            new_declaration = _stage_declaration(expression_call, symbol_table)
             if new_declaration is not None:
-                if stage_declaration is not None:
+                if seen_stage_call:
                     raise ValueError(f"duplicate stage() declaration in {source}")
                 stage_declaration = new_declaration
+            seen_stage_call = True
             continue
 
         target = _assignment_target(statement)
@@ -223,12 +237,27 @@ def _param_declaration(target: str, call: ast.Call) -> Optional[ParamDeclaration
     )
 
 
-def _stage_declaration(call: ast.Call) -> Optional[StageDeclaration]:
+def _stage_declaration(call: ast.Call, symbol_table: Optional[dict] = None) -> Optional[StageDeclaration]:
     if call.args:
         return None
 
     options: dict[str, Any] = {}
     for keyword in call.keywords:
+        if keyword.arg == "foreach":
+            value = _literal(keyword.value)
+            if value is _UNSUPPORTED:
+                if symbol_table is not None and isinstance(keyword.value, ast.Name):
+                    resolved = symbol_table.get(keyword.value.id, _UNSUPPORTED)
+                    if resolved is not _UNSUPPORTED and isinstance(resolved, (list, dict)):
+                        value = resolved
+                    else:
+                        return None
+                else:
+                    return None
+            if not isinstance(value, (list, dict)) or not value or not _is_yaml_value(value):
+                return None
+            options["foreach"] = value
+            continue
         if keyword.arg not in _STAGE_OPTION_TYPES:
             return None
         value = _literal(keyword.value)
@@ -263,6 +292,16 @@ _STAGE_OPTION_TYPES = {
     "frozen": bool,
     "always_changed": bool,
 }
+
+
+def _is_yaml_value(value: Any) -> bool:
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return True
+    if isinstance(value, list):
+        return bool(value) and all(_is_yaml_value(item) for item in value)
+    if isinstance(value, dict):
+        return bool(value) and all(isinstance(k, str) and _is_yaml_value(v) for k, v in value.items())
+    return False
 
 
 def _literal(node: ast.AST) -> Any:

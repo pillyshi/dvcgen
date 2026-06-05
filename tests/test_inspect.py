@@ -272,6 +272,156 @@ class InspectSourceTest(unittest.TestCase):
 
         self.assertEqual(declarations.stage, StageDeclaration(lineno=2, name="v1_train"))
 
+    def test_stage_foreach_list(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[0, 1, 2, 3, 4])
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, foreach=[0, 1, 2, 3, 4]),
+        )
+
+    def test_stage_foreach_list_of_dicts(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[{"lr": 0.001}, {"lr": 0.01}])
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, foreach=[{"lr": 0.001}, {"lr": 0.01}]),
+        )
+
+    def test_stage_foreach_dict(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach={"small": {"size": 100}, "large": {"size": 1000}})
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, foreach={"small": {"size": 100}, "large": {"size": 1000}}),
+        )
+
+    def test_stage_foreach_param_ref(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                FOLDS = param("folds", [0, 1, 2, 3, 4])
+                stage(foreach=FOLDS)
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=3, foreach=[0, 1, 2, 3, 4]),
+        )
+
+    def test_stage_foreach_unresolvable_ref(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=UNDEFINED_VAR)
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_stage_foreach_invalid_type(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach="not_a_list")
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_stage_foreach_forward_ref_to_param(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=FOLDS)
+                FOLDS = param("folds", [0, 1, 2, 3, 4])
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, foreach=[0, 1, 2, 3, 4]),
+        )
+
+    def test_invalid_stage_before_valid_raises_duplicate_error(self):
+        with self.assertRaisesRegex(ValueError, r"duplicate stage\(\) declaration"):
+            inspect_source(
+                textwrap.dedent(
+                    """
+                    stage(foreach=UNDEFINED_VAR)
+                    stage(cmd="python train.py")
+                    """
+                ),
+                source="pipeline/train.py",
+            )
+
+    def test_stage_foreach_empty_list_is_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[])
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_stage_foreach_empty_dict_is_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach={})
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_stage_foreach_tuple_elements_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[(0, 1), (2, 3)])
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_stage_foreach_nested_empty_list_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[[1, 2], [], [3, 4]])
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
 
 class InspectFileTest(unittest.TestCase):
     def test_inspect_file_returns_declarations_for_path(self):
