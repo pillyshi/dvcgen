@@ -411,6 +411,17 @@ class InspectSourceTest(unittest.TestCase):
 
         self.assertIsNone(declarations.stage)
 
+    def test_stage_foreach_nested_empty_list_ignored(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(foreach=[[1, 2], [], [3, 4]])
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
 
 class InspectFileTest(unittest.TestCase):
     def test_inspect_file_returns_declarations_for_path(self):

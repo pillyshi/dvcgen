@@ -298,9 +298,9 @@ def _is_yaml_value(value: Any) -> bool:
     if isinstance(value, (str, int, float, bool, type(None))):
         return True
     if isinstance(value, list):
-        return all(_is_yaml_value(item) for item in value)
+        return bool(value) and all(_is_yaml_value(item) for item in value)
     if isinstance(value, dict):
-        return all(isinstance(k, str) and _is_yaml_value(v) for k, v in value.items())
+        return bool(value) and all(isinstance(k, str) and _is_yaml_value(v) for k, v in value.items())
     return False
 
 
