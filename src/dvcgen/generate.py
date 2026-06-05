@@ -37,12 +37,13 @@ def dvc_document(declarations: Iterable[SourceDeclarations], runner: str | None 
 
         stage_metadata = source_declarations.stage
         default_cmd = f"python {source_declarations.source}"
+        effective_runner = runner.strip() if runner else None
         stage: dict[str, Any] = {
             "cmd": (
                 stage_metadata.cmd
                 if stage_metadata is not None and stage_metadata.cmd is not None
-                else f"{runner} {default_cmd}"
-                if runner
+                else f"{effective_runner} {default_cmd}"
+                if effective_runner
                 else default_cmd
             ),
             "deps": [

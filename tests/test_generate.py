@@ -638,6 +638,50 @@ class CliGenerateTest(unittest.TestCase):
 
 
 class RunnerFlagTest(unittest.TestCase):
+    def test_whitespace_only_runner_falls_back_to_default_cmd(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="   "),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
+    def test_runner_with_trailing_space_is_stripped(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner="uv run "),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "uv run python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
     def test_empty_runner_falls_back_to_default_cmd(self):
         declarations = (
             SourceDeclarations(
@@ -760,10 +804,9 @@ class RunnerFlagTest(unittest.TestCase):
                 os.chdir(original_directory)
 
             self.assertEqual(exit_code, 0)
-            self.assertIn(
-                '"cmd": "custom_runner train"',
-                (root / "dvc.yaml").read_text(encoding="utf-8"),
-            )
+            dvc_yaml = (root / "dvc.yaml").read_text(encoding="utf-8")
+            self.assertIn('"cmd": "custom_runner train"', dvc_yaml)
+            self.assertNotIn("uv run", dvc_yaml)
 
 
 if __name__ == "__main__":
