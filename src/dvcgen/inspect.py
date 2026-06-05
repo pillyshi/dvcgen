@@ -239,6 +239,11 @@ def _stage_declaration(call: ast.Call) -> Optional[StageDeclaration]:
             return None
         options[keyword.arg] = value
 
+    if "name" in options:
+        options["name"] = options["name"].strip()
+        if not options["name"]:
+            return None
+
     return StageDeclaration(lineno=call.lineno, **options)
 
 

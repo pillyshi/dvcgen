@@ -189,6 +189,20 @@ class GenerateDocumentTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "empty stage name"):
             dvc_document(declarations)
 
+    def test_stage_whitespace_only_name_raises_value_error(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+                stage=StageDeclaration(lineno=1, name="  "),
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "empty stage name"):
+            dvc_document(declarations)
+
     def test_stage_duplicate_name_override_raises_value_error(self):
         declarations = (
             SourceDeclarations(

@@ -236,6 +236,28 @@ class InspectSourceTest(unittest.TestCase):
 
         self.assertIsNone(declarations.stage)
 
+    def test_ignores_stage_with_whitespace_only_name(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name="  ")
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
+    def test_strips_stage_name(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name=" v1_train ")
+                """
+            )
+        )
+
+        self.assertEqual(declarations.stage, StageDeclaration(lineno=2, name="v1_train"))
+
 
 class InspectFileTest(unittest.TestCase):
     def test_inspect_file_returns_declarations_for_path(self):
