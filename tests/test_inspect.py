@@ -196,6 +196,31 @@ class InspectSourceTest(unittest.TestCase):
 
         self.assertIsNone(declarations.stage)
 
+    def test_extracts_stage_name_override(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name="v1_train")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.stage,
+            StageDeclaration(lineno=2, name="v1_train"),
+        )
+
+    def test_ignores_stage_with_non_string_name(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(name=123)
+                """
+            )
+        )
+
+        self.assertIsNone(declarations.stage)
+
 
 class InspectFileTest(unittest.TestCase):
     def test_inspect_file_returns_declarations_for_path(self):

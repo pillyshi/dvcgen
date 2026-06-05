@@ -80,6 +80,11 @@ def dump_yaml(value: Any) -> str:
 
 
 def _stage_name(declarations: SourceDeclarations) -> str:
+    if declarations.stage is not None and declarations.stage.name is not None:
+        name = declarations.stage.name
+        if not name:
+            raise ValueError(f"empty stage name in {declarations.source}")
+        return name
     return Path(declarations.source).stem
 
 

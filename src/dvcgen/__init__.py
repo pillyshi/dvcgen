@@ -5,6 +5,7 @@ __version__ = "0.3.0"
 
 def stage(
     *,
+    name=None,
     cmd=None,
     wdir=None,
     desc=None,

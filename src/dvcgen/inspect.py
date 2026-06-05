@@ -46,6 +46,7 @@ class StageDeclaration:
     """Stage metadata extracted from source code."""
 
     lineno: int
+    name: Optional[str] = None
     cmd: Optional[str] = None
     wdir: Optional[str] = None
     desc: Optional[str] = None
@@ -248,6 +249,7 @@ _OUTPUT_OPTION_TYPES = {
     "push": bool,
 }
 _STAGE_OPTION_TYPES = {
+    "name": str,
     "cmd": str,
     "wdir": str,
     "desc": str,
