@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from dvcgen.inspect import OutputDeclaration, SourceDeclarations
 
@@ -16,8 +16,14 @@ def _validate_stage_names(declaration_list: list[SourceDeclarations]) -> None:
             raise ValueError(f"empty stage name in {d.source}")
 
 
-def dvc_document(declarations: Iterable[SourceDeclarations], runner: Optional[str] = None) -> dict[str, Any]:
-    """Build a dvc.yaml document from source declarations."""
+def dvc_document(declarations: Iterable[SourceDeclarations], runner: str | None = None) -> dict[str, Any]:
+    """Build a dvc.yaml document from source declarations.
+
+    runner: optional prefix prepended to the default command (e.g. "uv run").
+    Ignored when a stage declares cmd= explicitly. Truthy check — empty strings
+    are treated as absent. The caller is responsible for ensuring runner
+    contains only trusted input; its value is written verbatim into dvc.yaml.
+    """
     declaration_list = list(declarations)
     _validate_stage_names(declaration_list)
 
@@ -30,13 +36,14 @@ def dvc_document(declarations: Iterable[SourceDeclarations], runner: Optional[st
             raise ValueError(f"duplicate stage name: {stage_name}")
 
         stage_metadata = source_declarations.stage
+        default_cmd = f"python {source_declarations.source}"
         stage: dict[str, Any] = {
             "cmd": (
                 stage_metadata.cmd
                 if stage_metadata is not None and stage_metadata.cmd is not None
-                else f"{runner} python {source_declarations.source}"
-                if runner is not None
-                else f"python {source_declarations.source}"
+                else f"{runner} {default_cmd}"
+                if runner
+                else default_cmd
             ),
             "deps": [
                 source_declarations.source,
@@ -77,7 +84,7 @@ def write_files(
     declarations: Sequence[SourceDeclarations],
     dvc_path: str | Path = "dvc.yaml",
     params_path: str | Path = "params.yaml",
-    runner: Optional[str] = None,
+    runner: str | None = None,
 ) -> None:
     """Write dvc.yaml and params.yaml for the supplied declarations."""
     Path(dvc_path).write_text(

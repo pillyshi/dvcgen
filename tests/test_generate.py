@@ -638,6 +638,28 @@ class CliGenerateTest(unittest.TestCase):
 
 
 class RunnerFlagTest(unittest.TestCase):
+    def test_empty_runner_falls_back_to_default_cmd(self):
+        declarations = (
+            SourceDeclarations(
+                source="pipeline/train.py",
+                deps=(),
+                outs=(),
+                params=(),
+            ),
+        )
+
+        self.assertEqual(
+            dvc_document(declarations, runner=""),
+            {
+                "stages": {
+                    "train": {
+                        "cmd": "python pipeline/train.py",
+                        "deps": ["pipeline/train.py"],
+                    },
+                },
+            },
+        )
+
     def test_runner_prepends_to_default_cmd(self):
         declarations = (
             SourceDeclarations(
