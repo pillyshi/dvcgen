@@ -97,7 +97,6 @@ class InspectSourceTest(unittest.TestCase):
                 OUT = dvcgen.out("models/model.pkl")
                 PARAM = param("train.lr", compute_default())
                 KWARG = dep(path="data/kwarg.csv")
-                FIRST = SECOND = dep("data/multiple.csv")
 
                 def build():
                     NESTED = dep("data/nested.csv")
@@ -108,6 +107,146 @@ class InspectSourceTest(unittest.TestCase):
         self.assertEqual(declarations.deps, ())
         self.assertEqual(declarations.outs, ())
         self.assertEqual(declarations.params, ())
+
+    def test_extracts_inline_dep(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                train = np.load(dep("artifacts/train.npz"))
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (PathDeclaration("", "artifacts/train.npz", 2),),
+        )
+
+    def test_extracts_inline_out(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                np.savez_compressed(out("artifacts/result.npz"), X=X)
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.outs,
+            (OutputDeclaration("", "artifacts/result.npz", 2),),
+        )
+
+    def test_extracts_inline_param(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                model = Transformer(llm=param("llm", "gpt-4o-mini"))
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.params,
+            (ParamDeclaration("", "llm", "gpt-4o-mini", 2),),
+        )
+
+    def test_extracts_mixed_inline_and_assignment(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                TRAIN = dep("data/train.csv")
+                result = model.fit(dep("data/val.csv"))
+                OUT = out("models/model.pkl")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (
+                PathDeclaration("TRAIN", "data/train.csv", 2),
+                PathDeclaration("", "data/val.csv", 3),
+            ),
+        )
+        self.assertEqual(
+            declarations.outs,
+            (OutputDeclaration("OUT", "models/model.pkl", 4),),
+        )
+
+    def test_extracts_multiple_assignment_dep(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                FIRST = SECOND = dep("data/shared.csv")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (PathDeclaration("", "data/shared.csv", 2),),
+        )
+
+    def test_deps_outs_ordered_by_source_line(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                result = process(dep("inline.csv"))
+                X = dep("direct.csv")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (
+                PathDeclaration("", "inline.csv", 2),
+                PathDeclaration("X", "direct.csv", 3),
+            ),
+        )
+
+    def test_dep_inside_stage_args_not_extracted(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(cmd=dep("script.py"))
+                """
+            )
+        )
+
+        self.assertEqual(declarations.deps, ())
+
+    def test_extracts_dep_inside_control_flow(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                if condition:
+                    result = process(dep("data/conditional.csv"))
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (PathDeclaration("", "data/conditional.csv", 3),),
+        )
+
+    def test_extracts_multiple_deps_in_expression(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                X = dep("a.csv") + dep("b.csv")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (
+                PathDeclaration("", "a.csv", 2),
+                PathDeclaration("", "b.csv", 2),
+            ),
+        )
 
     def test_does_not_execute_source_code(self):
         declarations = inspect_source(
