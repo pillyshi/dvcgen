@@ -104,9 +104,11 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
                 symbol_table[target] = param_decl.default
 
     direct_assignment_calls: set[int] = set()
+    stage_stmts: set[int] = set()
     for statement in tree.body:
         expression_call = _expression_call(statement)
         if expression_call is not None and _simple_call_name(expression_call) == "stage":
+            stage_stmts.add(id(statement))
             new_declaration = _stage_declaration(expression_call, symbol_table)
             if new_declaration is not None:
                 if seen_stage_call:
@@ -133,7 +135,7 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
                 if param_declaration is not None:
                     params.append(param_declaration)
 
-    for call in _iter_module_calls(tree.body):
+    for call in _iter_module_calls(tree.body, skip=stage_stmts):
         if id(call) in direct_assignment_calls:
             continue
         call_name = _simple_call_name(call)
@@ -150,6 +152,9 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
             if param_declaration is not None:
                 params.append(param_declaration)
 
+    deps.sort(key=lambda d: d.lineno)
+    outs.sort(key=lambda o: o.lineno)
+
     return SourceDeclarations(
         source=source,
         deps=tuple(deps),
@@ -159,9 +164,11 @@ def inspect_source(source_code: str, source: str = "<string>") -> SourceDeclarat
     )
 
 
-def _iter_module_calls(stmts: Iterable[ast.stmt]) -> Iterator[ast.Call]:
+def _iter_module_calls(stmts: Iterable[ast.stmt], skip: set[int] | None = None) -> Iterator[ast.Call]:
     """Yield all ast.Call nodes in module-level statements, skipping function/class bodies."""
     for stmt in stmts:
+        if skip and id(stmt) in skip:
+            continue
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
         for node in ast.walk(stmt):

@@ -187,6 +187,67 @@ class InspectSourceTest(unittest.TestCase):
             (PathDeclaration("", "data/shared.csv", 2),),
         )
 
+    def test_deps_outs_ordered_by_source_line(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                result = process(dep("inline.csv"))
+                X = dep("direct.csv")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (
+                PathDeclaration("", "inline.csv", 2),
+                PathDeclaration("X", "direct.csv", 3),
+            ),
+        )
+
+    def test_dep_inside_stage_args_not_extracted(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                stage(cmd=dep("script.py"))
+                """
+            )
+        )
+
+        self.assertEqual(declarations.deps, ())
+
+    def test_extracts_dep_inside_control_flow(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                if condition:
+                    result = process(dep("data/conditional.csv"))
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (PathDeclaration("", "data/conditional.csv", 3),),
+        )
+
+    def test_extracts_multiple_deps_in_expression(self):
+        declarations = inspect_source(
+            textwrap.dedent(
+                """
+                X = dep("a.csv") + dep("b.csv")
+                """
+            )
+        )
+
+        self.assertEqual(
+            declarations.deps,
+            (
+                PathDeclaration("", "a.csv", 2),
+                PathDeclaration("", "b.csv", 2),
+            ),
+        )
+
     def test_does_not_execute_source_code(self):
         declarations = inspect_source(
             textwrap.dedent(
