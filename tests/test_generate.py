@@ -914,5 +914,112 @@ class RunnerFlagTest(unittest.TestCase):
             self.assertNotIn("uv run", dvc_yaml)
 
 
+class OnlyParamsFlagTest(unittest.TestCase):
+    def _write_script(self, path: Path) -> None:
+        path.write_text(
+            textwrap.dedent(
+                """\
+                from dvcgen import dep, param
+                DATA = dep("data/train.csv")
+                LR = param("train.lr", default=0.01)
+                """
+            ),
+            encoding="utf-8",
+        )
+
+    def test_writes_params_but_not_dvc(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["--only-params", str(script), "--output-dir", str(root)],
+                stdout=stdout,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertTrue((root / "params.yaml").exists())
+            self.assertFalse((root / "dvc.yaml").exists())
+
+    def test_success_message(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["--only-params", str(script), "--output-dir", str(root)],
+                stdout=stdout,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("params.yaml", stdout.getvalue())
+            self.assertNotIn("dvc.yaml", stdout.getvalue())
+
+    def test_skips_dvc_yaml_overwrite_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+            (root / "dvc.yaml").write_text("existing", encoding="utf-8")
+
+            exit_code = main(["--only-params", str(script), "--output-dir", str(root)])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual((root / "dvc.yaml").read_text(encoding="utf-8"), "existing")
+
+    def test_refuses_to_overwrite_existing_params_without_force(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+            (root / "params.yaml").write_text("existing", encoding="utf-8")
+
+            stderr = io.StringIO()
+            exit_code = main(
+                ["--only-params", str(script), "--output-dir", str(root)],
+                stderr=stderr,
+            )
+
+            self.assertEqual(exit_code, 2)
+            self.assertIn("params.yaml", stderr.getvalue())
+            self.assertEqual((root / "params.yaml").read_text(encoding="utf-8"), "existing")
+
+    def test_force_overwrites_existing_params(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+            (root / "params.yaml").write_text("existing", encoding="utf-8")
+
+            exit_code = main(
+                ["--only-params", "--force", str(script), "--output-dir", str(root)]
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertNotEqual(
+                (root / "params.yaml").read_text(encoding="utf-8"), "existing"
+            )
+
+    def test_runner_with_only_params_warns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+
+            stderr = io.StringIO()
+            exit_code = main(
+                ["--only-params", "--runner", "uv run", str(script), "--output-dir", str(root)],
+                stderr=stderr,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("--runner", stderr.getvalue())
+            self.assertIn("ignored", stderr.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
