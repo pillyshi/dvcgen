@@ -18,7 +18,14 @@ class RuntimeApiTest(unittest.TestCase):
         )
 
     def test_param_returns_default_when_no_params_yaml(self):
-        self.assertEqual(param("train.lr", 0.001), 0.001)
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            orig = os.getcwd()
+            try:
+                os.chdir(d)
+                self.assertEqual(param("train.lr", 0.001), 0.001)
+            finally:
+                os.chdir(orig)
 
     def test_stage_returns_no_runtime_value(self):
         self.assertIsNone(
@@ -44,7 +51,7 @@ class ParamRuntimeResolutionTest(unittest.TestCase):
         params_file.write_text(content)
         os.chdir(tmp_path)
 
-    def test_reads_flat_key_from_params_yaml(self, tmp_path=None):
+    def test_reads_flat_key_from_params_yaml(self):
         import tempfile
         from pathlib import Path
 
@@ -84,6 +91,26 @@ class ParamRuntimeResolutionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             self._write_params(Path(d), "{\ninvalid yaml: [[\n")
             self.assertEqual(param("lr", 0.001), 0.001)
+
+    def test_returns_default_when_value_is_null(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            self._write_params(Path(d), "lr: null\n")
+            self.assertEqual(param("lr", 0.001), 0.001)
+
+    def test_reads_params_yaml_from_parent_directory(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "params.yaml").write_text("lr: 0.01\n")
+            subdir = root / "src"
+            subdir.mkdir()
+            os.chdir(subdir)
+            self.assertEqual(param("lr", 0.001), 0.01)
 
 
 if __name__ == "__main__":

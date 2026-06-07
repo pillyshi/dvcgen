@@ -44,8 +44,8 @@ def param(name, default):
     try:
         from pathlib import Path
         import yaml
-        params_path = Path("params.yaml")
-        if params_path.exists():
+        params_path = _find_params_yaml()
+        if params_path is not None:
             with params_path.open() as f:
                 data = yaml.safe_load(f)
             if isinstance(data, dict):
@@ -54,10 +54,23 @@ def param(name, default):
                     if not isinstance(cursor, dict) or part not in cursor:
                         return default
                     cursor = cursor[part]
-                return cursor
+                return cursor if cursor is not None else default
     except Exception:
         pass
     return default
+
+
+def _find_params_yaml():
+    from pathlib import Path
+    path = Path.cwd()
+    while True:
+        candidate = path / "params.yaml"
+        if candidate.exists():
+            return candidate
+        parent = path.parent
+        if parent == path:
+            return None
+        path = parent
 
 
 __all__ = ["__version__", "dep", "out", "param", "stage"]
