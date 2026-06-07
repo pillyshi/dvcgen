@@ -92,7 +92,7 @@ def write_files(
     runner: str | None = None,
     only_params: bool = False,
 ) -> None:
-    """Write dvc.yaml and params.yaml for the supplied declarations."""
+    """Write dvc.yaml and/or params.yaml for the supplied declarations."""
     if not only_params:
         Path(dvc_path).write_text(
             dump_yaml(dvc_document(declarations, runner=runner)),
