@@ -112,6 +112,23 @@ class ParamRuntimeResolutionTest(unittest.TestCase):
             os.chdir(subdir)
             self.assertEqual(param("lr", 0.001), 0.01)
 
+    def test_stops_at_dvc_boundary_when_no_params_yaml(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            # params.yaml exists only above the .dvc boundary
+            (root / "params.yaml").write_text("lr: 0.01\n")
+            project = root / "myproject"
+            project.mkdir()
+            (project / ".dvc").mkdir()
+            subdir = project / "src"
+            subdir.mkdir()
+            os.chdir(subdir)
+            # Should NOT find root/params.yaml — .dvc/ marks the project boundary
+            self.assertEqual(param("lr", 0.001), 0.001)
+
 
 if __name__ == "__main__":
     unittest.main()
