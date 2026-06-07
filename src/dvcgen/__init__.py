@@ -42,7 +42,6 @@ def out(
 def param(name, default):
     """Declare a pipeline parameter and return its default runtime value."""
     try:
-        from pathlib import Path
         import yaml
         params_path = _find_params_yaml()
         if params_path is not None:
