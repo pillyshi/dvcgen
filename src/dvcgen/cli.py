@@ -42,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Prepend PREFIX to the default stage command (e.g. 'uv run', 'poetry run').",
     )
     parser.add_argument(
+        "--only-params",
+        action="store_true",
+        help="Generate only params.yaml; skip dvc.yaml.",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -68,10 +73,14 @@ def main(
     dvc_path = output_dir / "dvc.yaml"
     params_path = output_dir / "params.yaml"
 
+    if args.only_params and args.runner is not None:
+        print("dvcgen: warning: --runner is ignored when --only-params is set", file=stderr)
+
+    output_paths = (params_path,) if args.only_params else (dvc_path, params_path)
     validation_message = _validation_error(
         script_paths,
         output_dir,
-        (dvc_path, params_path),
+        output_paths,
         args.force,
     )
     if validation_message is not None:
@@ -80,7 +89,13 @@ def main(
 
     try:
         declarations = inspect_files(script_paths)
-        write_files(declarations, dvc_path=dvc_path, params_path=params_path, runner=args.runner)
+        write_files(
+            declarations,
+            dvc_path=dvc_path,
+            params_path=params_path,
+            runner=args.runner,
+            only_params=args.only_params,
+        )
     except SyntaxError as syntax_error:
         print(
             f"dvcgen: error: failed to parse {syntax_error.filename}: {syntax_error.msg}",
@@ -94,7 +109,10 @@ def main(
         print(f"dvcgen: error: {value_error}", file=stderr)
         return 2
 
-    print(f"Wrote {dvc_path} and {params_path}", file=stdout)
+    if args.only_params:
+        print(f"Wrote {params_path}", file=stdout)
+    else:
+        print(f"Wrote {dvc_path} and {params_path}", file=stdout)
     return 0
 
 

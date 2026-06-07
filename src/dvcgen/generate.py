@@ -90,12 +90,14 @@ def write_files(
     dvc_path: str | Path = "dvc.yaml",
     params_path: str | Path = "params.yaml",
     runner: str | None = None,
+    only_params: bool = False,
 ) -> None:
-    """Write dvc.yaml and params.yaml for the supplied declarations."""
-    Path(dvc_path).write_text(
-        dump_yaml(dvc_document(declarations, runner=runner)),
-        encoding="utf-8",
-    )
+    """Write dvc.yaml and/or params.yaml for the supplied declarations."""
+    if not only_params:
+        Path(dvc_path).write_text(
+            dump_yaml(dvc_document(declarations, runner=runner)),
+            encoding="utf-8",
+        )
     Path(params_path).write_text(
         dump_yaml(params_document(declarations)),
         encoding="utf-8",
