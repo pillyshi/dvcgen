@@ -54,6 +54,8 @@ def param(name, default):
                         return default
                     cursor = cursor[part]
                 return cursor if cursor is not None else default
+    except ImportError:
+        pass
     except (OSError, yaml.YAMLError):
         pass
     return default
@@ -64,11 +66,8 @@ def _find_params_yaml():
     path = Path.cwd()
     while True:
         candidate = path / "params.yaml"
-        try:
-            candidate.open().close()
+        if candidate.is_file():
             return candidate
-        except OSError:
-            pass
         if (path / ".dvc").is_dir():
             return None
         parent = path.parent
