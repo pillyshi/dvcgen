@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dvcgen"
-version = "0.6.0"
+version = "0.7.0"
 description = "Generate DVC pipeline files from Python declarations."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [
   { name = "pillyshi" },
 ]
+dependencies = ["pyyaml>=6.0"]
 keywords = ["dvc", "pipeline", "params", "yaml"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
@@ -39,4 +40,5 @@ dev = [
     "pytest>=8.4.2",
     "ruff>=0.15.15",
     "twine>=6.2.0",
+    "types-pyyaml>=6.0",
 ]

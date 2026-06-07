@@ -1,3 +1,4 @@
+import os
 import unittest
 
 from dvcgen import dep, out, param, stage
@@ -16,7 +17,7 @@ class RuntimeApiTest(unittest.TestCase):
             "models/model.pkl",
         )
 
-    def test_param_returns_default(self):
+    def test_param_returns_default_when_no_params_yaml(self):
         self.assertEqual(param("train.lr", 0.001), 0.001)
 
     def test_stage_returns_no_runtime_value(self):
@@ -29,6 +30,60 @@ class RuntimeApiTest(unittest.TestCase):
                 always_changed=True,
             )
         )
+
+
+class ParamRuntimeResolutionTest(unittest.TestCase):
+    def setUp(self):
+        self._orig_dir = os.getcwd()
+
+    def tearDown(self):
+        os.chdir(self._orig_dir)
+
+    def _write_params(self, tmp_path, content):
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(content)
+        os.chdir(tmp_path)
+
+    def test_reads_flat_key_from_params_yaml(self, tmp_path=None):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            self._write_params(Path(d), "lr: 0.01\n")
+            self.assertEqual(param("lr", 0.001), 0.01)
+
+    def test_reads_nested_key_from_params_yaml(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            self._write_params(Path(d), "train:\n  lr: 0.01\n  epochs: 20\n")
+            self.assertAlmostEqual(param("train.lr", 0.001), 0.01)
+            self.assertEqual(param("train.epochs", 10), 20)
+
+    def test_returns_default_when_key_missing(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            self._write_params(Path(d), "train:\n  lr: 0.01\n")
+            self.assertEqual(param("train.epochs", 10), 10)
+
+    def test_returns_default_when_params_yaml_is_empty(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            self._write_params(Path(d), "")
+            self.assertEqual(param("lr", 0.001), 0.001)
+
+    def test_returns_default_when_params_yaml_is_malformed(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            self._write_params(Path(d), "{\ninvalid yaml: [[\n")
+            self.assertEqual(param("lr", 0.001), 0.001)
 
 
 if __name__ == "__main__":

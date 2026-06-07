@@ -1,6 +1,6 @@
 """Generate DVC pipeline files from Python declarations."""
 
-__version__ = "0.5.0"
+__version__ = "0.7.0"
 
 
 def stage(
@@ -41,6 +41,22 @@ def out(
 
 def param(name, default):
     """Declare a pipeline parameter and return its default runtime value."""
+    try:
+        from pathlib import Path
+        import yaml
+        params_path = Path("params.yaml")
+        if params_path.exists():
+            with params_path.open() as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, dict):
+                cursor = data
+                for part in name.split("."):
+                    if not isinstance(cursor, dict) or part not in cursor:
+                        return default
+                    cursor = cursor[part]
+                return cursor
+    except Exception:
+        pass
     return default
 
 
