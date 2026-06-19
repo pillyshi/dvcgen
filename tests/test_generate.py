@@ -1044,21 +1044,21 @@ class OnlyParamsFlagTest(unittest.TestCase):
             # Hand-edited value must not be preserved
             self.assertNotIn("0.5", content)
 
-    def test_force_overwrites_existing_params(self):
+    def test_non_mapping_params_yaml_raises_error(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             script = root / "train.py"
             self._write_script(script)
-            (root / "params.yaml").write_text("existing", encoding="utf-8")
+            (root / "params.yaml").write_text("- item1\n- item2\n", encoding="utf-8")
 
+            stderr = io.StringIO()
             exit_code = main(
-                ["--only-params", "--force", str(script), "--output-dir", str(root)]
+                ["--only-params", str(script), "--output-dir", str(root)],
+                stderr=stderr,
             )
 
-            self.assertEqual(exit_code, 0)
-            self.assertNotEqual(
-                (root / "params.yaml").read_text(encoding="utf-8"), "existing"
-            )
+            self.assertEqual(exit_code, 2)
+            self.assertIn("is not a YAML mapping", stderr.getvalue())
 
     def test_runner_with_only_params_warns(self):
         with tempfile.TemporaryDirectory() as directory:

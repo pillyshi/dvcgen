@@ -94,7 +94,9 @@ def _merge_params(existing: dict, new: dict) -> dict:
             result[key] = value
         elif isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _merge_params(result[key], value)
-        # else: existing value wins — do nothing
+        elif not isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = value
+        # else: existing scalar wins — do nothing
     return result
 
 
@@ -115,7 +117,11 @@ def write_files(
     new_params = params_document(declarations)
     params_file = Path(params_path)
     if not force and params_file.exists():
-        existing = yaml.safe_load(params_file.read_text(encoding="utf-8")) or {}
+        existing = yaml.safe_load(params_file.read_text(encoding="utf-8"))
+        if existing is None:
+            existing = {}
+        elif not isinstance(existing, dict):
+            raise ValueError(f"{params_path} is not a YAML mapping")
         new_params = _merge_params(existing, new_params)
     params_file.write_text(dump_yaml(new_params), encoding="utf-8")
 
