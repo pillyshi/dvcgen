@@ -651,6 +651,36 @@ class CliGenerateTest(unittest.TestCase):
             self.assertIn('"stages":', (root / "dvc.yaml").read_text(encoding="utf-8"))
             self.assertEqual((root / "params.yaml").read_text(encoding="utf-8"), "\n")
 
+    def test_merges_existing_params_in_normal_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            script.write_text(
+                textwrap.dedent(
+                    """\
+                    from dvcgen import param
+                    LR = param("train.lr", 0.001)
+                    EPOCHS = param("train.epochs", 10)
+                    """
+                ),
+                encoding="utf-8",
+            )
+            # Existing file has lr hand-tuned; epochs is missing (will be added)
+            (root / "params.yaml").write_text(
+                '"train":\n  "lr": 0.5\n',
+                encoding="utf-8",
+            )
+
+            exit_code = main(["--output-dir", str(root), str(script)])
+
+            self.assertEqual(exit_code, 0)
+            content = (root / "params.yaml").read_text(encoding="utf-8")
+            # Hand-tuned value preserved
+            self.assertIn("0.5", content)
+            # New key added
+            self.assertIn('"epochs"', content)
+            self.assertIn("10", content)
+
     def test_writes_to_output_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -971,12 +1001,55 @@ class OnlyParamsFlagTest(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertEqual((root / "dvc.yaml").read_text(encoding="utf-8"), "existing")
 
-    def test_refuses_to_overwrite_existing_params_without_force(self):
+    def test_merges_existing_params_by_default(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             script = root / "train.py"
             self._write_script(script)
-            (root / "params.yaml").write_text("existing", encoding="utf-8")
+            # Existing file has lr hand-tuned and an extra key not in the script
+            (root / "params.yaml").write_text(
+                '"train":\n  "lr": 0.5\n  "extra": 99\n',
+                encoding="utf-8",
+            )
+
+            exit_code = main(
+                ["--only-params", str(script), "--output-dir", str(root)]
+            )
+
+            self.assertEqual(exit_code, 0)
+            content = (root / "params.yaml").read_text(encoding="utf-8")
+            # Existing value preserved
+            self.assertIn("0.5", content)
+            # Extra key preserved
+            self.assertIn('"extra"', content)
+
+    def test_force_discards_existing_params_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+            (root / "params.yaml").write_text(
+                '"train":\n  "lr": 0.5\n  "extra": 99\n',
+                encoding="utf-8",
+            )
+
+            exit_code = main(
+                ["--only-params", "--force", str(script), "--output-dir", str(root)]
+            )
+
+            self.assertEqual(exit_code, 0)
+            content = (root / "params.yaml").read_text(encoding="utf-8")
+            # Extra key from existing file must be discarded (not merged in)
+            self.assertNotIn('"extra"', content)
+            # Hand-edited value must not be preserved
+            self.assertNotIn("0.5", content)
+
+    def test_non_mapping_params_yaml_raises_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "train.py"
+            self._write_script(script)
+            (root / "params.yaml").write_text("- item1\n- item2\n", encoding="utf-8")
 
             stderr = io.StringIO()
             exit_code = main(
@@ -985,24 +1058,7 @@ class OnlyParamsFlagTest(unittest.TestCase):
             )
 
             self.assertEqual(exit_code, 2)
-            self.assertIn("params.yaml", stderr.getvalue())
-            self.assertEqual((root / "params.yaml").read_text(encoding="utf-8"), "existing")
-
-    def test_force_overwrites_existing_params(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            script = root / "train.py"
-            self._write_script(script)
-            (root / "params.yaml").write_text("existing", encoding="utf-8")
-
-            exit_code = main(
-                ["--only-params", "--force", str(script), "--output-dir", str(root)]
-            )
-
-            self.assertEqual(exit_code, 0)
-            self.assertNotEqual(
-                (root / "params.yaml").read_text(encoding="utf-8"), "existing"
-            )
+            self.assertIn("is not a YAML mapping", stderr.getvalue())
 
     def test_runner_with_only_params_warns(self):
         with tempfile.TemporaryDirectory() as directory:

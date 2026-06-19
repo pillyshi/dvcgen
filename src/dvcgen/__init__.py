@@ -1,6 +1,6 @@
 """Generate DVC pipeline files from Python declarations."""
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 
 def stage(
