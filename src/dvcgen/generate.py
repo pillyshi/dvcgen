@@ -7,6 +7,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from dvcgen.inspect import OutputDeclaration, SourceDeclarations
 
 
@@ -85,12 +87,24 @@ def params_document(declarations: Iterable[SourceDeclarations]) -> dict[str, Any
     return params
 
 
+def _merge_params(existing: dict, new: dict) -> dict:
+    result = dict(existing)
+    for key, value in new.items():
+        if key not in result:
+            result[key] = value
+        elif isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _merge_params(result[key], value)
+        # else: existing value wins — do nothing
+    return result
+
+
 def write_files(
     declarations: Sequence[SourceDeclarations],
     dvc_path: str | Path = "dvc.yaml",
     params_path: str | Path = "params.yaml",
     runner: str | None = None,
     only_params: bool = False,
+    force: bool = False,
 ) -> None:
     """Write dvc.yaml and/or params.yaml for the supplied declarations."""
     if not only_params:
@@ -98,10 +112,12 @@ def write_files(
             dump_yaml(dvc_document(declarations, runner=runner)),
             encoding="utf-8",
         )
-    Path(params_path).write_text(
-        dump_yaml(params_document(declarations)),
-        encoding="utf-8",
-    )
+    new_params = params_document(declarations)
+    params_file = Path(params_path)
+    if not force and params_file.exists():
+        existing = yaml.safe_load(params_file.read_text(encoding="utf-8")) or {}
+        new_params = _merge_params(existing, new_params)
+    params_file.write_text(dump_yaml(new_params), encoding="utf-8")
 
 
 def dump_yaml(value: Any) -> str:

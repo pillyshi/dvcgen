@@ -76,7 +76,7 @@ def main(
     if args.only_params and args.runner is not None:
         print("dvcgen: warning: --runner is ignored when --only-params is set", file=stderr)
 
-    output_paths = (params_path,) if args.only_params else (dvc_path, params_path)
+    output_paths = () if args.only_params else (dvc_path,)
     validation_message = _validation_error(
         script_paths,
         output_dir,
@@ -95,6 +95,7 @@ def main(
             params_path=params_path,
             runner=args.runner,
             only_params=args.only_params,
+            force=args.force,
         )
     except SyntaxError as syntax_error:
         print(
